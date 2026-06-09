@@ -23,6 +23,20 @@ export const Route = createFileRoute("/")({
 function Index() {
   return (
     <main className="relative min-h-screen bg-[#0a0a0b]">
+      <nav className="fixed right-4 top-4 z-50 flex items-center gap-2">
+        <a
+          href="/scoreboard"
+          className="border border-white/15 bg-black/60 px-4 py-2 text-xs uppercase tracking-[0.3em] text-white/80 backdrop-blur-md transition-colors hover:border-white/40 hover:text-white"
+        >
+          Standings
+        </a>
+        <a
+          href="/dashboard"
+          className="border border-white/15 bg-black/60 px-4 py-2 text-xs uppercase tracking-[0.3em] text-white/80 backdrop-blur-md transition-colors hover:border-white/40 hover:text-white"
+        >
+          My Dashboard
+        </a>
+      </nav>
       <CosmicRules />
     </main>
   );
