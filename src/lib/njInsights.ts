@@ -182,3 +182,175 @@ export const fetchSmartRoster = createServerFn({ method: "POST" })
       return { ok: false, message: err instanceof Error ? err.message : String(err), matchedEvents: [], roster: [] };
     }
   });
+
+// ---------------------------------------------------------------------------
+// Data Patrol — identity resolution for the "active guest who is actually a
+// member" problem (e.g. members who go by an English alias while the
+// Directory holds their legal/Japanese name, or vice versa). Read-only
+// detection; fixes queue to the Action Queue sheet for the office.
+// ---------------------------------------------------------------------------
+
+const DIRECTORY_SHEET_ID = "1p_gyuEnNackRBNFfTFUs4C-TpuDtFkdkvmZlAXvtR3I";
+
+export interface AliasCandidate {
+  guest: string;
+  guestVisits: number;
+  member: string;
+  memberActivity: string;
+  reason: string;
+}
+
+export interface DirectoryDuplicate {
+  a: string;
+  b: string;
+  birthDate: string;
+  activityA: string;
+  activityB: string;
+}
+
+export interface MissingRegular {
+  name: string;
+  visits: number;
+}
+
+export interface DataCleanup {
+  ok: boolean;
+  message?: string;
+  /** Active guests who likely already exist in the Directory under another name */
+  aliasCandidates: AliasCandidate[];
+  /** Directory rows that look like the same person twice (alias + legal name) */
+  directoryDuplicates: DirectoryDuplicate[];
+  /** Frequent attenders with no Directory match at all */
+  missingFromDirectory: MissingRegular[];
+}
+
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+
+export const fetchDataCleanup = createServerFn({ method: "GET" }).handler(
+  async (): Promise<DataCleanup> => {
+    const empty = { aliasCandidates: [], directoryDuplicates: [], missingFromDirectory: [] };
+    try {
+      const { getValues } = await import("@/lib/server/sheets");
+      // Directory: B=Full Name, C=Last, D=First, G=Birth Date, J=Activity
+      const dirRows = await getValues(DIRECTORY_SHEET_ID, "Directory!B4:J900");
+      const members = dirRows
+        .map((r) => ({
+          full: (r[0] || "").trim(),
+          last: norm(r[1] || ""),
+          first: norm(r[2] || ""),
+          birth: (r[5] || "").trim(),
+          activity: (r[8] || "").trim(),
+        }))
+        .filter((m) => m.full);
+      const memberFulls = new Set(members.map((m) => norm(m.full)));
+
+      // Attendance Stats: B=Full Name, E=Status, V=Last 3 Months
+      const statRows = await getValues(ATTENDANCE_SHEET_ID, "Attendance Stats!B3:X1650");
+      const guests = statRows
+        .map((r) => ({
+          name: (r[0] || "").trim(),
+          status: (r[3] || "").trim().toLowerCase(),
+          visits: Number(r[20] || 0) || 0,
+        }))
+        .filter((g) => g.name && g.status === "guest" && g.visits >= 2);
+
+      const aliasCandidates: AliasCandidate[] = [];
+      const missingFromDirectory: MissingRegular[] = [];
+      for (const g of guests) {
+        const gNorm = norm(g.name);
+        const tokens = gNorm.split(" ");
+        const gLast = tokens.length > 1 ? tokens[tokens.length - 1] : "";
+        const gFirst = tokens[0];
+        if (memberFulls.has(gNorm)) {
+          aliasCandidates.push({
+            guest: g.name,
+            guestVisits: g.visits,
+            member: g.name,
+            memberActivity: members.find((m) => norm(m.full) === gNorm)?.activity || "",
+            reason: "Exact name exists in the Directory — guest status is likely a data error",
+          });
+          continue;
+        }
+        let best: AliasCandidate | null = null;
+        for (const m of members) {
+          if (gLast && m.last === gLast && m.first !== gFirst) {
+            // same family name, different given name → classic alias pattern
+            const candidate = {
+              guest: g.name,
+              guestVisits: g.visits,
+              member: m.full,
+              memberActivity: m.activity,
+              reason: `Same family name "${m.last}" — possible alias / legal-name pair`,
+            };
+            // prefer members whose first name shares a leading letter (Joe/Joseph)
+            if (!best || m.first[0] === gFirst[0]) best = candidate;
+          }
+        }
+        if (best) aliasCandidates.push(best);
+        else if (g.visits >= 3) missingFromDirectory.push({ name: g.name, visits: g.visits });
+      }
+      aliasCandidates.sort((a, b) => b.guestVisits - a.guestVisits);
+      missingFromDirectory.sort((a, b) => b.visits - a.visits);
+
+      // Same surname + same non-empty birth date + different given names
+      const directoryDuplicates: DirectoryDuplicate[] = [];
+      const byKey = new Map<string, typeof members>();
+      for (const m of members) {
+        if (!m.birth || !m.last) continue;
+        const key = `${m.last}|${m.birth}`;
+        const list = byKey.get(key) || [];
+        list.push(m);
+        byKey.set(key, list);
+      }
+      for (const list of byKey.values()) {
+        for (let i = 0; i < list.length; i++) {
+          for (let j = i + 1; j < list.length; j++) {
+            if (list[i].first !== list[j].first) {
+              directoryDuplicates.push({
+                a: list[i].full,
+                b: list[j].full,
+                birthDate: list[i].birth,
+                activityA: list[i].activity,
+                activityB: list[j].activity,
+              });
+            }
+          }
+        }
+      }
+
+      return {
+        ok: true,
+        aliasCandidates: aliasCandidates.slice(0, 30),
+        directoryDuplicates: directoryDuplicates.slice(0, 30),
+        missingFromDirectory: missingFromDirectory.slice(0, 30),
+      };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : String(err), ...empty };
+    }
+  },
+);
+
+export type DataFixType = "link-alias" | "add-to-directory" | "merge-duplicates";
+
+/** Queue a data fix for the office (Directory is the identity source of truth) */
+export const queueDataFix = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: { fixType: DataFixType; person: string; detail: string; reason: string }) => data,
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message: string }> => {
+    try {
+      const { appendValues } = await import("@/lib/server/sheets");
+      const stamp = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+      await appendValues(ACTION_QUEUE_SHEET_ID, "Data Fix Requests!A1:F", [
+        [stamp, data.fixType, data.person, data.detail, data.reason, "PENDING"],
+      ]);
+      const labels: Record<DataFixType, string> = {
+        "link-alias": "Alias link queued",
+        "add-to-directory": "Directory addition queued",
+        "merge-duplicates": "Duplicate merge queued",
+      };
+      return { ok: true, message: `${labels[data.fixType]} for ${data.person}.` };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+    }
+  });

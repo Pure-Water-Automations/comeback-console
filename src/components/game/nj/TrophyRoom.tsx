@@ -75,6 +75,7 @@ const xpLabels: Record<XpEvent, string> = {
   face_tagged: "Per face tagged and confirmed",
   outreach_sent: "Send a one-click outreach invite",
   smart_roster_used: "Build a smart event roster",
+  data_fix: "Queue an identity/data fix",
   checkin: "Per person checked in on Sunday",
   event_checkin: "Per person checked in at an event",
   quest_posted: "Post a LES quest",

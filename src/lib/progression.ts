@@ -35,7 +35,8 @@ export type XpEvent =
   | "photo_uploaded" // photo roll: picture added
   | "face_tagged" // photo roll: per face tagged + confirmed
   | "outreach_sent" // one-click outreach queued
-  | "smart_roster_used"; // recurring-event roster generated
+  | "smart_roster_used" // recurring-event roster generated
+  | "data_fix"; // identity/data cleanup queued
 
 export const XP_VALUES: Record<XpEvent, number> = {
   checkin: 10,
@@ -52,6 +53,7 @@ export const XP_VALUES: Record<XpEvent, number> = {
   face_tagged: 12,
   outreach_sent: 30,
   smart_roster_used: 15,
+  data_fix: 20,
 };
 
 // ---------------------------------------------------------------------------
@@ -191,6 +193,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "fisher", name: "Fisher of People", description: "Send your first one-click outreach.", family: "pastor", rarity: "common", sprite: "npc", check: (s) => count(s, "outreach_sent") >= 1 },
   { id: "fisher-10", name: "Net Full to Breaking", description: "Send 10 outreach invitations.", family: "pastor", rarity: "epic", sprite: "spirit", check: (s) => count(s, "outreach_sent") >= 10 },
   { id: "list-whisperer", name: "List Whisperer", description: "Build a smart roster for a recurring event.", family: "pastor", rarity: "rare", sprite: "wizard", check: (s) => count(s, "smart_roster_used") >= 1 },
+  { id: "record-straightener", name: "Record Straightener", description: "Queue your first data fix.", family: "pastor", rarity: "common", sprite: "smart_guy", check: (s) => count(s, "data_fix") >= 1 },
+  { id: "census-keeper", name: "Keeper of the Census", description: "Queue 10 data fixes — the Book is accurate because of you.", family: "pastor", rarity: "epic", sprite: "mentor", check: (s) => count(s, "data_fix") >= 10 },
   // --- easter eggs (secret pastor feats; unlocked via unlockEgg) ---
   { id: "egg-konami", name: "The Old Code", description: "↑↑↓↓←→←→BA — some scrolls never expire.", family: "pastor", rarity: "legendary", secret: true, sprite: "wizard", check: (s) => !!s.unlocked["egg-konami"] },
   { id: "egg-mascot", name: "Poke the Adventurer", description: "Click the mascot seven times. They noticed.", family: "pastor", rarity: "rare", secret: true, sprite: "adventurer", check: (s) => !!s.unlocked["egg-mascot"] },
