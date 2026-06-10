@@ -19,6 +19,7 @@ import {
 
 import { ATTENDANCE_2026, NJ_PROFILE, WEEKLY_SUNDAY_2026 } from "@/lib/njData";
 import { EventLogSection } from "./EventLogSection";
+import { PhotoRollCall } from "./PhotoRollCall";
 import { RollCallSection } from "./RollCallSection";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -96,6 +97,7 @@ export function AttendancePanel() {
         <div className="mb-5 space-y-5">
           <RollCallSection />
           <EventLogSection />
+          <PhotoRollCall />
         </div>
 
         <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
