@@ -276,3 +276,114 @@ export function weeklyAwardsMeta(awards: Award[]): WeeklyAwardsMeta {
 }
 
 export type { RankedCommunity };
+
+// ---------------------------------------------------------------------------
+// Region overview — "how did we do as a region" stat slides that OPEN the show
+// before individual community awards. All aggregates from the live snapshot.
+// ---------------------------------------------------------------------------
+
+export interface OverviewStat {
+  label: string;
+  value: string;
+  sub?: string;
+  /** highlight tone for the value */
+  tone?: AwardTone;
+}
+
+export interface OverviewSlide {
+  id: string;
+  kicker: string;
+  title: string;
+  subtitle: string;
+  stats: OverviewStat[];
+  blurb?: string;
+}
+
+function sum(nums: number[]): number {
+  return nums.reduce((a, b) => a + b, 0);
+}
+
+function beatTarget(key: "finance" | "activeMembers" | "blessing"): number {
+  return COMMUNITIES.filter((c) => pctOfTarget(c[key]) >= 100).length;
+}
+
+/** Latest recorded Sunday across the region (sum of each community's last week) */
+function regionLatestSunday(): number {
+  return sum(
+    COMMUNITIES.map((c) => {
+      const weeks = c.weeklyAttendance.filter((w): w is number => w !== null && w > 0);
+      return weeks.length ? weeks[weeks.length - 1] : 0;
+    }),
+  );
+}
+
+export function buildRegionOverview(): OverviewSlide[] {
+  // Growth is computed only over communities that have ENTERED data for a lane
+  // (result > 0). Several communities haven't logged income/blessing for the
+  // partial month yet; counting their zeros as "decline" would slander them and
+  // tank the region total. So we aggregate reporters only — true and fairer.
+  const laneGrowth = (key: "finance" | "activeMembers" | "blessing") => {
+    const reporters = COMMUNITIES.filter((c) => c[key].result > 0);
+    const result = sum(reporters.map((c) => c[key].result));
+    const baseline = sum(reporters.map((c) => c[key].baseline));
+    return { result, growth: baseline ? (result / baseline - 1) * 100 : 0, reporters: reporters.length };
+  };
+  const income = laneGrowth("finance");
+  const members = laneGrowth("activeMembers");
+  const blessing = laneGrowth("blessing");
+
+  // Region points = sum of points from reporting communities only (a 0-result
+  // lane contributes 0, never a negative), so the headline reflects real work.
+  const regionPoints = sum(COMMUNITIES.map((c) => Math.max(0, totalPoints(c))));
+  const reporting = income.reporters;
+  const teamCount = new Set(COMMUNITIES.map((c) => c.team)).size;
+
+  const incomeResult = income.result;
+  const incomeGrowth = income.growth;
+  const memberResult = members.result;
+  const memberGrowth = members.growth;
+  const blessingResult = blessing.result;
+  const blessingGrowth = blessing.growth;
+
+  const pct = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(1)}%`;
+
+  return [
+    {
+      id: "region-headline",
+      kicker: "State of the Region",
+      title: "How We Did Together",
+      subtitle: "The Northeast at a glance this trimester",
+      stats: [
+        { label: "Region Points", value: `${regionPoints >= 0 ? "+" : ""}${regionPoints.toLocaleString("en-US")}`, sub: "combined growth points", tone: "gold" },
+        { label: "Communities", value: `${COMMUNITIES.length}`, sub: `${reporting} reporting income`, tone: "blue" },
+        { label: "Challenge Teams", value: `${teamCount}`, sub: "STRATCOMs in play", tone: "violet" },
+        { label: "Latest Sunday", value: regionLatestSunday().toLocaleString("en-US"), sub: "in worship region-wide", tone: "teal" },
+      ],
+      blurb: "Before we celebrate communities, here is the whole field — this is us, together.",
+    },
+    {
+      id: "region-growth",
+      kicker: "Growth vs Baseline",
+      title: "The Three Lanes",
+      subtitle: "Where the region grew against its own starting line",
+      stats: [
+        { label: "Income", value: pct(incomeGrowth), sub: `${usd(incomeResult)} this period`, tone: "gold" },
+        { label: "Active Members", value: pct(memberGrowth), sub: `${memberResult.toLocaleString("en-US")} active region-wide`, tone: "teal" },
+        { label: "Blessing Journey", value: pct(blessingGrowth), sub: `${blessingResult.toLocaleString("en-US")} steps logged`, tone: "rose" },
+      ],
+      blurb: "Growth is measured from your own baseline — every community started somewhere.",
+    },
+    {
+      id: "region-targets",
+      kicker: "Hitting the Mark",
+      title: "Who Cleared Target",
+      subtitle: "Communities at or above their trimester target",
+      stats: [
+        { label: "Income Target", value: `${beatTarget("finance")} / ${COMMUNITIES.length}`, sub: "beat income goal", tone: "gold" },
+        { label: "Members Target", value: `${beatTarget("activeMembers")} / ${COMMUNITIES.length}`, sub: "beat membership goal", tone: "teal" },
+        { label: "Blessing Target", value: `${beatTarget("blessing")} / ${COMMUNITIES.length}`, sub: "beat blessing goal", tone: "rose" },
+      ],
+      blurb: "Now — let's honor the communities who made it happen.",
+    },
+  ];
+}
