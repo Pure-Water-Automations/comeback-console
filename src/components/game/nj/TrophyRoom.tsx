@@ -71,6 +71,10 @@ const rarityTone: Record<
 };
 
 const xpLabels: Record<XpEvent, string> = {
+  photo_uploaded: "Run a photo roll call",
+  face_tagged: "Per face tagged and confirmed",
+  outreach_sent: "Send a one-click outreach invite",
+  smart_roster_used: "Build a smart event roster",
   checkin: "Per person checked in on Sunday",
   event_checkin: "Per person checked in at an event",
   quest_posted: "Post a LES quest",

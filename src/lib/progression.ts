@@ -31,7 +31,11 @@ export type XpEvent =
   | "event_created"
   | "tab_visited" // first visit to a tab per session
   | "daily_visit" // first console open of the day
-  | "easter_egg";
+  | "easter_egg"
+  | "photo_uploaded" // photo roll: picture added
+  | "face_tagged" // photo roll: per face tagged + confirmed
+  | "outreach_sent" // one-click outreach queued
+  | "smart_roster_used"; // recurring-event roster generated
 
 export const XP_VALUES: Record<XpEvent, number> = {
   checkin: 10,
@@ -44,6 +48,10 @@ export const XP_VALUES: Record<XpEvent, number> = {
   tab_visited: 5,
   daily_visit: 20,
   easter_egg: 40,
+  photo_uploaded: 15,
+  face_tagged: 12,
+  outreach_sent: 30,
+  smart_roster_used: 15,
 };
 
 // ---------------------------------------------------------------------------
@@ -178,6 +186,11 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "tourist", name: "Command Tour", description: "Visit all six console tabs.", family: "pastor", rarity: "common", sprite: "npc", check: (s) => s.tabsVisited.length >= 6 },
   { id: "streak-3", name: "Three-Day Habit", description: "Open the console three days in a row.", family: "pastor", rarity: "rare", sprite: "spirit", check: (s) => s.visitStreak >= 3 },
   { id: "streak-7", name: "Sevenfold Faithful", description: "Open the console seven days in a row.", family: "pastor", rarity: "epic", sprite: "spirit", check: (s) => s.visitStreak >= 7 },
+  { id: "photo-pioneer", name: "Say Cheese", description: "Run your first photo roll call.", family: "pastor", rarity: "common", sprite: "smart_guy", check: (s) => count(s, "photo_uploaded") >= 1 },
+  { id: "face-namer", name: "Knows the Flock by Face", description: "Tag and confirm 25 faces.", family: "pastor", rarity: "epic", sprite: "mentor", check: (s) => count(s, "face_tagged") >= 25 },
+  { id: "fisher", name: "Fisher of People", description: "Send your first one-click outreach.", family: "pastor", rarity: "common", sprite: "npc", check: (s) => count(s, "outreach_sent") >= 1 },
+  { id: "fisher-10", name: "Net Full to Breaking", description: "Send 10 outreach invitations.", family: "pastor", rarity: "epic", sprite: "spirit", check: (s) => count(s, "outreach_sent") >= 10 },
+  { id: "list-whisperer", name: "List Whisperer", description: "Build a smart roster for a recurring event.", family: "pastor", rarity: "rare", sprite: "wizard", check: (s) => count(s, "smart_roster_used") >= 1 },
   // --- easter eggs (secret pastor feats; unlocked via unlockEgg) ---
   { id: "egg-konami", name: "The Old Code", description: "↑↑↓↓←→←→BA — some scrolls never expire.", family: "pastor", rarity: "legendary", secret: true, sprite: "wizard", check: (s) => !!s.unlocked["egg-konami"] },
   { id: "egg-mascot", name: "Poke the Adventurer", description: "Click the mascot seven times. They noticed.", family: "pastor", rarity: "rare", secret: true, sprite: "adventurer", check: (s) => !!s.unlocked["egg-mascot"] },
