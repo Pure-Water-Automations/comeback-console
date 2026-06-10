@@ -25,6 +25,7 @@ import {
 } from "@/lib/comebackData";
 import { cn } from "@/lib/utils";
 import { mascotFor } from "./mascots";
+import { AwardsRecap } from "../awards/AwardsRecap";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -846,6 +847,9 @@ export function ScoreboardPage() {
     <div className="relative min-h-screen overflow-x-hidden bg-[#0a0a0b] text-white">
       <CosmicBackdrop />
       <HeroHeader communityCount={standings.length} leader={leader} />
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-5 md:px-12 lg:px-16 py-8 md:py-12">
+        <AwardsRecap />
+      </div>
       <PodiumSection standings={standings} />
       <StandingsSection standings={standings} />
       <TeamBattleSection standings={standings} />
