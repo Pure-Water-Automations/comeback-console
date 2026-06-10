@@ -36,6 +36,12 @@ function Index() {
         >
           My Dashboard
         </a>
+        <a
+          href="/nj"
+          className="border border-white/15 bg-black/60 px-4 py-2 text-xs uppercase tracking-[0.3em] text-white/80 backdrop-blur-md transition-colors hover:border-white/40 hover:text-white"
+        >
+          NJ Console
+        </a>
       </nav>
       <CosmicRules />
     </main>
