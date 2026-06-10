@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarPlus, CheckCircle2, Loader2, Search, X } from "lucide-react";
+import { CalendarPlus, CheckCircle2, Loader2, Plus, Search, Sparkles, UsersRound, X } from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 
@@ -11,6 +11,7 @@ import {
   type EventColumn,
   type RosterPerson,
 } from "@/lib/njActions";
+import { fetchSmartRoster, type SmartRosterPerson } from "@/lib/njInsights";
 import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
@@ -56,6 +57,11 @@ export function EventLogSection() {
   const [eventDate, setEventDate] = useState("");
   const [eventName, setEventName] = useState("");
   const [addingEvent, setAddingEvent] = useState(false);
+  const [smartKeyword, setSmartKeyword] = useState("");
+  const [smartRoster, setSmartRoster] = useState<SmartRosterPerson[]>([]);
+  const [smartMatchedEvents, setSmartMatchedEvents] = useState<Array<{ name: string; date: string }>>([]);
+  const [buildingSmartRoster, setBuildingSmartRoster] = useState(false);
+  const [smartRosterLoaded, setSmartRosterLoaded] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RosterPerson[]>([]);
   const [searching, setSearching] = useState(false);
@@ -67,6 +73,25 @@ export function EventLogSection() {
     [events, selectedCol],
   );
   const visibleEvents = useMemo(() => events.slice(-5).reverse(), [events]);
+  const partyRows = useMemo(() => new Set(party.map((person) => person.row)), [party]);
+  const maxSmartTimes = useMemo(
+    () => smartRoster.reduce((max, person) => Math.max(max, person.timesAttended), 0),
+    [smartRoster],
+  );
+  const smartMatchedSummary = useMemo(() => {
+    const count = smartMatchedEvents.length;
+    if (count === 0) return smartRosterLoaded ? "Matched 0 past events" : "";
+
+    const preview = smartMatchedEvents
+      .slice(0, 4)
+      .map((event) => (event.date ? `${event.name} (${event.date})` : event.name));
+    const more = count > preview.length ? `, +${count - preview.length} more` : "";
+    return `Matched ${count} past ${count === 1 ? "event" : "events"}: ${preview.join(", ")}${more}`;
+  }, [smartMatchedEvents, smartRosterLoaded]);
+  const smartUnselectedCount = useMemo(
+    () => smartRoster.filter((person) => !partyRows.has(person.row)).length,
+    [partyRows, smartRoster],
+  );
 
   const refreshEvents = useCallback(async (preferredCol?: string) => {
     setLoadingEvents(true);
@@ -125,11 +150,24 @@ export function EventLogSection() {
     };
   }, [query]);
 
-  const addToParty = (person: RosterPerson) => {
+  const addPeopleToParty = (people: RosterPerson[]) => {
     setParty((current) => {
-      if (current.some((member) => member.row === person.row)) return current;
-      return [...current, person];
+      const selectedRows = new Set(current.map((person) => person.row));
+      const additions: RosterPerson[] = [];
+
+      for (const person of people) {
+        if (selectedRows.has(person.row)) continue;
+        selectedRows.add(person.row);
+        additions.push({ row: person.row, name: person.name, type: person.type });
+      }
+
+      if (additions.length === 0) return current;
+      return [...current, ...additions];
     });
+  };
+
+  const addToParty = (person: RosterPerson) => {
+    addPeopleToParty([person]);
   };
 
   const removeFromParty = (row: number) => {
@@ -152,6 +190,39 @@ export function EventLogSection() {
       }
     } finally {
       setAddingEvent(false);
+    }
+  };
+
+  const handleBuildSmartRoster = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (buildingSmartRoster) return;
+
+    const keyword = smartKeyword.trim();
+    if (!keyword) return;
+
+    setBuildingSmartRoster(true);
+    setSmartRosterLoaded(false);
+    try {
+      const res = await fetchSmartRoster({ data: { keyword } });
+      if (!res.ok) {
+        setSmartMatchedEvents([]);
+        setSmartRoster([]);
+        toast.error(res.message || "Smart roster could not be built.");
+        return;
+      }
+
+      setSmartMatchedEvents(res.matchedEvents);
+      setSmartRoster(res.roster);
+      setSmartRosterLoaded(true);
+      if (res.roster.length > 0) {
+        celebrate(award("smart_roster_used"));
+      }
+    } catch (err) {
+      setSmartMatchedEvents([]);
+      setSmartRoster([]);
+      toast.error(err instanceof Error ? err.message : "Smart roster could not be built.");
+    } finally {
+      setBuildingSmartRoster(false);
     }
   };
 
@@ -270,6 +341,129 @@ export function EventLogSection() {
           </div>
 
           <div className="space-y-3">
+            <form
+              className="border border-amber-200/15 bg-white/[0.03] p-3 shadow-[0_0_18px_rgba(245,158,11,0.06)]"
+              onSubmit={handleBuildSmartRoster}
+            >
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-[0.32em] text-amber-100/80">Smart roster</p>
+                  {smartMatchedSummary ? (
+                    <p
+                      className="mt-2 truncate text-[11px] uppercase tracking-[0.18em] text-white/45"
+                      title={smartMatchedSummary}
+                    >
+                      {smartMatchedSummary}
+                    </p>
+                  ) : null}
+                </div>
+                {smartRoster.length > 0 ? (
+                  <button
+                    type="button"
+                    className="inline-flex h-9 shrink-0 items-center justify-center gap-2 border border-amber-200/35 bg-amber-300/10 px-3 text-[9px] font-bold uppercase tracking-[0.24em] text-amber-100 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={checkingIn || smartUnselectedCount === 0}
+                    onClick={() => addPeopleToParty(smartRoster)}
+                  >
+                    <UsersRound className="size-3.5" />
+                    Add all {smartRoster.length}
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="relative">
+                  <Sparkles className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-100/45" />
+                  <input
+                    className={cn(CONTROL, "pl-10 focus:border-amber-100/45")}
+                    value={smartKeyword}
+                    onChange={(event) => setSmartKeyword(event.target.value)}
+                    placeholder="youth, bon-odori, prayer breakfast"
+                    disabled={buildingSmartRoster || checkingIn}
+                    aria-label="Smart roster keyword"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className={cn(ACTION_BUTTON, "border-amber-200/35 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15")}
+                  disabled={buildingSmartRoster || checkingIn || smartKeyword.trim().length === 0}
+                >
+                  {buildingSmartRoster ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
+                  Build roster
+                </button>
+              </div>
+
+              <div className="mt-3 border border-white/10 bg-black/45">
+                {buildingSmartRoster ? (
+                  <div className="grid h-[168px] place-items-center text-amber-100">
+                    <Loader2 className="size-6 animate-spin" />
+                  </div>
+                ) : smartRoster.length > 0 ? (
+                  <div className="max-h-[360px] divide-y divide-white/10 overflow-y-auto">
+                    {smartRoster.map((person) => {
+                      const alreadySelected = partyRows.has(person.row);
+                      const intensity = maxSmartTimes > 0 ? Math.min(1, person.timesAttended / maxSmartTimes) : 0;
+                      const amberAlpha = 0.05 + intensity * 0.13;
+                      const glowAlpha = 0.06 + intensity * 0.2;
+
+                      return (
+                        <div
+                          key={person.row}
+                          className="flex flex-col gap-3 px-3 py-3 transition hover:bg-white/[0.045] sm:flex-row sm:items-center sm:justify-between"
+                          style={{
+                            backgroundColor: `rgba(245, 158, 11, ${amberAlpha})`,
+                            boxShadow: `inset 0 0 ${8 + intensity * 18}px rgba(245, 158, 11, ${glowAlpha})`,
+                          }}
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold uppercase tracking-[0.06em] text-white">{person.name}</p>
+                            <p className="mt-1 font-mono text-[10px] text-white/35">Row {person.row}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                            <PersonTypeChip type={person.type} />
+                            <span
+                              className="border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-amber-50"
+                              style={{
+                                borderColor: `rgba(253, 230, 138, ${0.22 + intensity * 0.36})`,
+                                backgroundColor: `rgba(251, 191, 36, ${0.1 + intensity * 0.18})`,
+                              }}
+                            >
+                              {person.timesAttended}x at this event
+                            </span>
+                            <button
+                              type="button"
+                              className="inline-flex h-8 items-center justify-center gap-2 border border-white/10 bg-white/[0.04] px-3 text-[9px] font-bold uppercase tracking-[0.22em] text-white/62 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                              disabled={alreadySelected || checkingIn}
+                              onClick={() => addToParty(person)}
+                              aria-label={`Add ${person.name}`}
+                            >
+                              {alreadySelected ? <CheckCircle2 className="size-3.5" /> : <Plus className="size-3.5" />}
+                              {alreadySelected ? "Added" : "Add"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="grid h-[168px] place-items-center px-6 text-center">
+                    <p className="text-xs uppercase leading-5 tracking-[0.24em] text-white/35">
+                      {smartRosterLoaded ? (
+                        smartMatchedEvents.length > 0 ? (
+                          "No attendees found in matching past events"
+                        ) : (
+                          <>
+                            No past events match &mdash; try a shorter keyword
+                          </>
+                        )
+                      ) : (
+                        "Smart roster standby"
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </form>
+
             <label className="block">
               <span className="mb-2 block text-[10px] uppercase tracking-[0.32em] text-white/35">Event roster search</span>
               <div className="relative">
@@ -292,7 +486,7 @@ export function EventLogSection() {
               ) : results.length > 0 ? (
                 <div className="divide-y divide-white/10">
                   {results.map((person) => {
-                    const alreadySelected = party.some((member) => member.row === person.row);
+                    const alreadySelected = partyRows.has(person.row);
                     return (
                       <button
                         key={person.row}
