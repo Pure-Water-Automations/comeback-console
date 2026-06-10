@@ -17,6 +17,7 @@ import {
 } from "@/lib/njInsights";
 import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
+import { DataPatrolSection } from "./DataPatrolSection";
 import { celebrate } from "./ProgressHud";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -522,6 +523,8 @@ export function OutreachPanel() {
             />
           ))}
         </div>
+
+        <DataPatrolSection />
       </div>
     </motion.section>
   );
