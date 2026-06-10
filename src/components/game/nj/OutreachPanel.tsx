@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Check, ExternalLink, Loader2, Radar, Send, Sparkles } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  Loader2,
+  Radar,
+  Send,
+  Sparkles,
+  UserCheck,
+  Database,
+} from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, useScroll, useSpring, useTransform } from "motion/react";
 import { toast } from "sonner";
 
@@ -78,7 +88,8 @@ const SECTIONS: SectionConfig[] = [
     glow: "rgba(45,212,191,0.18)",
     sprite: mentorLetterImg,
     spriteAlt: "Mentor letter sprite",
-    reason: (person) => `${person.name} has attended twice in the last 3 months and is one visit away from Active`,
+    reason: (person) =>
+      `${person.name} has attended twice in the last 3 months and is one visit away from Active`,
   },
   {
     id: "slipping",
@@ -122,10 +133,7 @@ function Reveal({
   delay?: number;
 }) {
   return (
-    <motion.div
-      className={className}
-      transition={{ duration: 0.62, delay, ease: EASE }}
-    >
+    <motion.div className={className} transition={{ duration: 0.62, delay, ease: EASE }}>
       {children}
     </motion.div>
   );
@@ -162,10 +170,7 @@ function LoadingRows({ config }: { config: SectionConfig }) {
   return (
     <div className="grid gap-3">
       {Array.from({ length: 4 }, (_, index) => (
-        <div
-          key={index}
-          className="grid gap-3 border border-white/10 bg-white/[0.03] p-4"
-        >
+        <div key={index} className="grid gap-3 border border-white/10 bg-white/[0.03] p-4">
           <div className="space-y-3">
             <div className="h-4 w-2/5 animate-pulse bg-white/12" />
             <div className="h-3 w-4/5 animate-pulse bg-white/8" />
@@ -210,8 +215,16 @@ function PersonRow({
     >
       <div className="min-w-0">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">{person.name}</h4>
-          <span className={cn("border px-2 py-1 font-mono text-xs font-bold", config.accentBorder, config.accentText)}>
+          <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">
+            {person.name}
+          </h4>
+          <span
+            className={cn(
+              "border px-2 py-1 font-mono text-xs font-bold",
+              config.accentBorder,
+              config.accentText,
+            )}
+          >
             {person.lastThreeMonths}x in 3 months
           </span>
         </div>
@@ -229,7 +242,12 @@ function PersonRow({
           "flex h-11 w-full items-center justify-center gap-2 border px-3 text-[10px] font-bold uppercase tracking-[0.22em] transition disabled:cursor-not-allowed",
           queued
             ? "border-white/10 bg-white/[0.025] text-white/32"
-            : cn(config.accentBorder, config.accentBg, config.accentText, "hover:bg-white/[0.08] disabled:opacity-45"),
+            : cn(
+                config.accentBorder,
+                config.accentBg,
+                config.accentText,
+                "hover:bg-white/[0.08] disabled:opacity-45",
+              ),
         )}
         disabled={pending || queued}
         onClick={() => onQueue(config, person)}
@@ -265,7 +283,10 @@ function RadarSection({
   onQueue: (config: SectionConfig, person: RadarPerson) => void;
 }) {
   return (
-    <Reveal className={cn(CARD, "relative overflow-hidden p-5")} delay={Number(config.index) * 0.05}>
+    <Reveal
+      className={cn(CARD, "relative overflow-hidden p-5")}
+      delay={Number(config.index) * 0.05}
+    >
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -329,6 +350,7 @@ export function OutreachPanel() {
   const [radar, setRadar] = useState<OutreachRadar | null>(null);
   const [pendingKeys, setPendingKeys] = useState<Set<string>>(() => new Set());
   const [queuedKeys, setQueuedKeys] = useState<Set<string>>(() => new Set());
+  const [activeSubTab, setActiveSubTab] = useState<string>("ready");
   const { scrollYProgress } = useScroll();
   const smoothProgress = useSpring(scrollYProgress, {
     stiffness: 80,
@@ -451,8 +473,8 @@ export function OutreachPanel() {
                 Harvest radar
               </h2>
               <p className="mt-5 max-w-3xl text-sm uppercase leading-6 tracking-[0.22em] text-white/48">
-                These are the people one step from the next level of engagement: repeat guests, near-active
-                attenders, and active members who need a timely pastoral touch.
+                These are the people one step from the next level of engagement: repeat guests,
+                near-active attenders, and active members who need a timely pastoral touch.
               </p>
               <a
                 href={ACTION_QUEUE_URL}
@@ -460,7 +482,9 @@ export function OutreachPanel() {
                 rel="noreferrer"
                 className="mt-5 inline-flex max-w-full items-center gap-3 border border-white/10 bg-white/[0.035] px-3 py-2 text-[10px] font-bold uppercase leading-5 tracking-[0.2em] text-white/48 transition hover:border-cyan-100/35 hover:text-white"
               >
-                <span>Review-only POC — invites queue for the office, nothing sends automatically</span>
+                <span>
+                  Review-only POC — invites queue for the office, nothing sends automatically
+                </span>
                 <ExternalLink className="size-4 shrink-0 text-cyan-100" />
               </a>
             </div>
@@ -480,7 +504,14 @@ export function OutreachPanel() {
         </Reveal>
 
         <div className="grid gap-3 border border-white/10 bg-black/60 p-4 backdrop-blur-md md:grid-cols-3">
-          <div className="border border-white/10 bg-white/[0.035] p-4">
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("ready")}
+            className={cn(
+              "text-left border border-white/10 bg-white/[0.035] p-4 transition-all hover:bg-white/[0.06] cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-200/50",
+              activeSubTab === "ready" && "ring-1 ring-amber-200/50 bg-white/[0.06]",
+            )}
+          >
             <p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/35">
               <Radar className="size-4 text-amber-100" />
               Ready
@@ -488,8 +519,15 @@ export function OutreachPanel() {
             <p className="mt-1 font-mono text-3xl font-bold text-amber-100">
               {loading ? "..." : formatNumber(totals.conversionGuests)}
             </p>
-          </div>
-          <div className="border border-white/10 bg-white/[0.035] p-4">
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("oneAway")}
+            className={cn(
+              "text-left border border-white/10 bg-white/[0.035] p-4 transition-all hover:bg-white/[0.06] cursor-pointer focus:outline-none focus:ring-1 focus:ring-teal-200/50",
+              activeSubTab === "oneAway" && "ring-1 ring-teal-200/50 bg-white/[0.06]",
+            )}
+          >
             <p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/35">
               <Sparkles className="size-4 text-teal-100" />
               One away
@@ -497,8 +535,15 @@ export function OutreachPanel() {
             <p className="mt-1 font-mono text-3xl font-bold text-teal-100">
               {loading ? "..." : formatNumber(totals.oneAway)}
             </p>
-          </div>
-          <div className="border border-white/10 bg-white/[0.035] p-4">
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("slipping")}
+            className={cn(
+              "text-left border border-white/10 bg-white/[0.035] p-4 transition-all hover:bg-white/[0.06] cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-200/50",
+              activeSubTab === "slipping" && "ring-1 ring-violet-200/50 bg-white/[0.06]",
+            )}
+          >
             <p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.3em] text-white/35">
               <Radar className="size-4 text-violet-100" />
               Slipping
@@ -506,25 +551,78 @@ export function OutreachPanel() {
             <p className="mt-1 font-mono text-3xl font-bold text-violet-100">
               {loading ? "..." : formatNumber(totals.slipping)}
             </p>
-          </div>
+          </button>
         </div>
 
-        <div className="grid gap-5 xl:grid-cols-3">
-          {SECTIONS.map((config) => (
+        <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full space-y-5">
+          <TabsList className="inline-flex h-auto w-full md:w-auto flex-wrap gap-2 rounded-none border-0 bg-transparent p-0">
+            <TabsTrigger
+              value="ready"
+              className="relative h-10 rounded-none border border-white/10 bg-black/40 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/45 shadow-none transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-transparent hover:bg-white/[0.06] hover:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_rgba(45,212,191,0.28)] data-[state=active]:after:bg-teal-400 cursor-pointer"
+            >
+              <UserCheck className="mr-2 size-3.5 shrink-0 text-amber-100" />
+              <span>Ready to Convert</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="oneAway"
+              className="relative h-10 rounded-none border border-white/10 bg-black/40 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/45 shadow-none transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-transparent hover:bg-white/[0.06] hover:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_rgba(45,212,191,0.28)] data-[state=active]:after:bg-teal-400 cursor-pointer"
+            >
+              <Sparkles className="mr-2 size-3.5 shrink-0 text-teal-100" />
+              <span>One Visit Away</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="slipping"
+              className="relative h-10 rounded-none border border-white/10 bg-black/40 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/45 shadow-none transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-transparent hover:bg-white/[0.06] hover:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_rgba(45,212,191,0.28)] data-[state=active]:after:bg-teal-400 cursor-pointer"
+            >
+              <Radar className="mr-2 size-3.5 shrink-0 text-violet-100" />
+              <span>Slipping</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="dataPatrol"
+              className="relative h-10 rounded-none border border-white/10 bg-black/40 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] text-white/45 shadow-none transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-[2px] after:bg-transparent hover:bg-white/[0.06] hover:text-white data-[state=active]:bg-white/[0.08] data-[state=active]:text-white data-[state=active]:shadow-[0_0_18px_rgba(45,212,191,0.28)] data-[state=active]:after:bg-teal-400 cursor-pointer"
+            >
+              <Database className="mr-2 size-3.5 shrink-0 text-cyan-100" />
+              <span>Data Patrol</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="ready" className="mt-5 outline-none">
             <RadarSection
-              key={config.id}
-              config={config}
-              people={data[config.id]}
-              total={totals[config.id]}
+              config={SECTIONS[0]}
+              people={data.conversionGuests}
+              total={totals.conversionGuests}
               loading={loading}
               pendingKeys={pendingKeys}
               queuedKeys={queuedKeys}
               onQueue={handleQueue}
             />
-          ))}
-        </div>
-
-        <DataPatrolSection />
+          </TabsContent>
+          <TabsContent value="oneAway" className="mt-5 outline-none">
+            <RadarSection
+              config={SECTIONS[1]}
+              people={data.oneAway}
+              total={totals.oneAway}
+              loading={loading}
+              pendingKeys={pendingKeys}
+              queuedKeys={queuedKeys}
+              onQueue={handleQueue}
+            />
+          </TabsContent>
+          <TabsContent value="slipping" className="mt-5 outline-none">
+            <RadarSection
+              config={SECTIONS[2]}
+              people={data.slipping}
+              total={totals.slipping}
+              loading={loading}
+              pendingKeys={pendingKeys}
+              queuedKeys={queuedKeys}
+              onQueue={handleQueue}
+            />
+          </TabsContent>
+          <TabsContent value="dataPatrol" className="mt-5 outline-none">
+            <DataPatrolSection />
+          </TabsContent>
+        </Tabs>
       </div>
     </motion.section>
   );
