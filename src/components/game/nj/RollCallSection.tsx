@@ -20,6 +20,26 @@ const CONTROL =
 const ACTION_BUTTON =
   "inline-flex h-11 items-center justify-center gap-2 border border-teal-200/30 bg-teal-300/10 px-4 text-[10px] font-bold uppercase tracking-[0.28em] text-teal-100 transition hover:bg-teal-300/15 disabled:cursor-not-allowed disabled:opacity-40";
 
+// Sunday columns are "M-D" strings running Oct 2025 → Dec 2026, so years are
+// implicit: start at 2025 and bump the year whenever the month rolls backward.
+// Returns the index of the first Sunday on or after today (else the last one).
+function upcomingSundayIndex(sundays: { date: string }[]): number {
+  let year = 2025;
+  let prevMonth = 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (let i = 0; i < sundays.length; i++) {
+    const m = /^(\d{1,2})-(\d{1,2})$/.exec(sundays[i].date.trim());
+    if (!m) continue;
+    const month = Number(m[1]);
+    if (i === 0 && month < 9) year = 2026; // sheet starts mid-year variant
+    if (month < prevMonth) year++;
+    prevMonth = month;
+    if (new Date(year, month - 1, Number(m[2])) >= today) return i;
+  }
+  return Math.max(0, sundays.length - 1);
+}
+
 function toastResult(ok: boolean, message?: string) {
   if (!message) return;
   if (ok) {
@@ -63,7 +83,15 @@ export function RollCallSection() {
     () => sundays.find((sunday) => sunday.col === selectedCol),
     [selectedCol, sundays],
   );
-  const visibleSundays = useMemo(() => sundays.slice(-6).reverse(), [sundays]);
+  // The sheet pre-creates date columns through year end with 0 totals (and the
+  // odd stray mark), so neither "last column" nor "last non-zero" anchors well.
+  // Anchor on the calendar instead: the chip window ends at the first Sunday on
+  // or after today.
+  const visibleSundays = useMemo(() => {
+    const idx = upcomingSundayIndex(sundays);
+    const end = Math.min(sundays.length, idx + 1);
+    return sundays.slice(Math.max(0, end - 6), end).reverse();
+  }, [sundays]);
 
   const refreshSundays = useCallback(async (preferredCol?: string) => {
     setLoadingSundays(true);
@@ -82,7 +110,9 @@ export function RollCallSection() {
         if (current && res.sundays.some((sunday) => sunday.col === current)) {
           return current;
         }
-        return res.sundays[res.sundays.length - 1]?.col ?? "";
+        // Default to the first Sunday on or after today (see visibleSundays).
+        const frontier = res.sundays[upcomingSundayIndex(res.sundays)];
+        return frontier?.col ?? res.sundays[res.sundays.length - 1]?.col ?? "";
       });
     } finally {
       setLoadingSundays(false);
