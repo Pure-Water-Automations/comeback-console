@@ -26,7 +26,7 @@ export interface Community {
   mascot: "adventurer" | "mentor" | "npc" | "smart_guy" | "spirit" | "wizard";
   /** Average monthly income (USD) */
   finance: CategoryScore;
-  /** Active members (3+ attendances in the last 91 days) */
+  /** Active members (3+ attendances in the last 3 months) */
   activeMembers: CategoryScore;
   /** Total Blessing Journey process steps */
   blessing: CategoryScore;
@@ -434,7 +434,7 @@ export function coachingTips(c: Community): string[] {
     finance:
       "Income points come from growth vs. baseline — make sure monthly giving is entered in the finance source and watch your target line.",
     members:
-      "Active members are people with 3+ attendances in 91 days. Record every Sunday and event, then follow up with drifting members.",
+      "Active members are people who attend 3+ times in 3 months. Record every Sunday and event, then follow up with drifting members.",
     blessing:
       "Blessing points reward process steps, not just ceremonies. Record every step a candidate takes — movement is the score.",
   };

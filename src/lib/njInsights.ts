@@ -5,7 +5,7 @@
 // "low-hanging fruit" lists the 2026-06-10 Northeast meeting asked for —
 // notably "convert active guests into registered members, starting with
 // people attended 3+ times" (the campaign's Active threshold is 3+
-// attendances in the rolling 91 days).
+// attendances in the rolling 3 months / 91 days).
 //
 // queueOutreach appends one-click outreach actions (membership invite,
 // coffee invite, comeback nudge) to the okamotomiak-owned Action Queue
@@ -35,7 +35,7 @@ export interface RadarPerson {
 export interface OutreachRadar {
   ok: boolean;
   message?: string;
-  /** Guests with 3+ attendances in 91 days — membership conversion targets */
+  /** Guests with 3+ attendances in the last 3 months — membership conversion targets */
   conversionGuests: RadarPerson[];
   /** People at exactly 2 attendances — one visit away from Active */
   oneAway: RadarPerson[];

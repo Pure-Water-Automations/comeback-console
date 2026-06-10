@@ -53,7 +53,7 @@ const SECTIONS: SectionConfig[] = [
     id: "conversionGuests",
     index: "01",
     title: "Ready to convert",
-    subtitle: "Guests with 3+ attendances in 91 days.",
+    subtitle: "Guests who attended 3+ times in the last 3 months.",
     action: "membership-invite",
     buttonLabel: "Invite to membership",
     accentText: "text-amber-100",
@@ -62,7 +62,7 @@ const SECTIONS: SectionConfig[] = [
     glow: "rgba(234,179,8,0.18)",
     sprite: npcWaveImg,
     spriteAlt: "NPC wave sprite",
-    reason: (person) => `Guest, ${person.lastThreeMonths} attendances in last 91 days`,
+    reason: (person) => `Guest, ${person.lastThreeMonths} attendances in the last 3 months`,
   },
   {
     id: "oneAway",
@@ -77,7 +77,7 @@ const SECTIONS: SectionConfig[] = [
     glow: "rgba(45,212,191,0.18)",
     sprite: mentorLetterImg,
     spriteAlt: "Mentor letter sprite",
-    reason: (person) => `${person.name} has 2 attendances in the last 91 days and is one visit away from Active`,
+    reason: (person) => `${person.name} has attended twice in the last 3 months and is one visit away from Active`,
   },
   {
     id: "slipping",
@@ -93,7 +93,7 @@ const SECTIONS: SectionConfig[] = [
     sprite: mentorCoffeeImg,
     spriteAlt: "Mentor coffee sprite",
     reason: (person) =>
-      `${person.name} is Active with 3 attendances in the last 91 days and may slip without follow-up`,
+      `${person.name} is Active with 3 attendances in the last 3 months and may slip without follow-up`,
   },
 ];
 
@@ -211,7 +211,7 @@ function PersonRow({
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">{person.name}</h4>
           <span className={cn("border px-2 py-1 font-mono text-xs font-bold", config.accentBorder, config.accentText)}>
-            {person.lastThreeMonths}x in 91 days
+            {person.lastThreeMonths}x in 3 months
           </span>
         </div>
         <p className="text-[10px] uppercase leading-5 tracking-[0.26em] text-white/42">

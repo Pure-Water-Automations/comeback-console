@@ -40,10 +40,10 @@ const FACTS: FactSection[] = [
   {
     topic: "Active Membership Classifications",
     keywords: ["active", "member", "members", "membership", "core", "inactive", "archive", "classification", "attendance", "91", "days"],
-    response: "Attend closely! The scoreboard classifies membership based on attendance in the recent 91-day window:\n" +
-              "• Core Member: 12 or more attendances in the last 91 days.\n" +
-              "• Active Member: 3 to 11 attendances in the last 91 days.\n" +
-              "• Inactive Member: fewer than 3 attendances in the last 91 days.\n" +
+    response: "Attend closely! The scoreboard classifies membership based on attendance in the recent 3-month (91-day) window:\n" +
+              "• Core Member: 12 or more attendances in the last 3 months.\n" +
+              "• Active Member: 3 to 11 attendances in the last 3 months.\n" +
+              "• Inactive Member: fewer than 3 attendances in the last 3 months.\n" +
               "• Archive: last attended date is older than 12 months.\n" +
               "Remember, the system rewards recorded reality! Keep Sunday service and event logs updated to show who is participating."
   },
@@ -264,10 +264,10 @@ Here is the official Scoreboard Guide:
 2. Monday 5 PM EST Sync Deadline:
 All trackers (Sunday attendance, event attendance, new registrants, Blessing progress, finance, LES, dashboard checks) must be updated by Monday at 5 PM EST for the regional review.
 
-3. Active Membership Classifications (Calculated on 91-day window):
-• Core Member: 12 or more attendances in the last 91 days.
-• Active Member: 3 to 11 attendances in the last 91 days.
-• Inactive Member: fewer than 3 attendances in the last 91 days.
+3. Active Membership Classifications (Calculated on a rolling 3-month window):
+• Core Member: 12 or more attendances in the last 3 months.
+• Active Member: 3 to 11 attendances in the last 3 months.
+• Inactive Member: fewer than 3 attendances in the last 3 months.
 • Archive: last attended date is older than 12 months.
 
 4. Scoreboard Formulas:
