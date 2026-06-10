@@ -20,6 +20,14 @@ import { toast } from "sonner";
 
 import mentorLetterImg from "@/assets/sprites/mentor/mentor_letter.png";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   ACTION_QUEUE_URL,
   completeQuest,
   fetchLiveQuests,
@@ -33,6 +41,8 @@ import { celebrate } from "./ProgressHud";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md";
+const DIALOG_CONTENT =
+  "max-h-[calc(100vh-2rem)] overflow-y-auto rounded-none border-white/15 bg-[#050509]/95 text-white shadow-[0_0_48px_rgba(168,85,247,0.2)] backdrop-blur-xl sm:rounded-none [&>button]:rounded-none [&>button]:text-white/60 [&>button:hover]:text-white";
 
 const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 const questMonthOptions = Array.from({ length: 12 }, (_, index) => `${index + 1}/2026`);
@@ -379,6 +389,7 @@ function QuestCard({
 }
 
 function PostQuestCard() {
+  const [open, setOpen] = useState(false);
   const [lane, setLane] = useState<QuestLane>("Leadership");
   const [month, setMonth] = useState("6/2026");
   const [title, setTitle] = useState("");
@@ -407,6 +418,7 @@ function PostQuestCard() {
         });
         setTitle("");
         setTargetDate("");
+        setOpen(false);
       } else {
         toast.error(res.message);
       }
@@ -424,7 +436,7 @@ function PostQuestCard() {
             "radial-gradient(circle at 18% 18%, rgba(168,85,247,0.18), transparent 34%), radial-gradient(circle at 82% 64%, rgba(234,179,8,0.12), transparent 32%)",
         }}
       />
-      <form className="relative grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end" onSubmit={handleSubmit}>
+      <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end">
         <div>
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
@@ -446,73 +458,96 @@ function PostQuestCard() {
           </a>
         </div>
 
-        <div className="grid gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Lane</span>
-              <select
-                className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                value={lane}
-                onChange={(event) => setLane(event.target.value as QuestLane)}
-                disabled={pending}
-              >
-                {laneConfig.map((config) => (
-                  <option key={config.lane} value={config.lane}>
-                    {config.lane}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Month</span>
-              <select
-                className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                value={month}
-                onChange={(event) => setMonth(event.target.value)}
-                disabled={pending}
-              >
-                {questMonthOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="block">
-            <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Title</span>
-            <input
-              className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              disabled={pending}
-              required
-            />
-          </label>
-
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <label className="block">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Target date</span>
-              <input
-                className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                value={targetDate}
-                onChange={(event) => setTargetDate(event.target.value)}
-                placeholder="6/30/26"
-                disabled={pending}
-              />
-            </label>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
             <button
-              type="submit"
-              className="mt-auto flex h-10 min-w-36 items-center justify-center gap-2 border border-violet-100/45 bg-violet-300/10 px-4 text-[10px] font-bold uppercase tracking-[0.28em] text-violet-50 transition hover:bg-violet-300/15 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={pending || title.trim().length === 0}
+              type="button"
+              className="flex h-16 w-full items-center justify-center gap-3 border border-violet-100/45 bg-violet-300/10 px-5 text-sm font-bold uppercase tracking-[0.32em] text-violet-50 shadow-[0_0_24px_rgba(168,85,247,0.16)] transition hover:bg-violet-300/15 lg:justify-self-end"
             >
-              {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              Post
+              <ScrollText className="size-5" />
+              Post a quest +
             </button>
-          </div>
-        </div>
-      </form>
+          </DialogTrigger>
+          <DialogContent className={cn(DIALOG_CONTENT, "max-w-2xl")}>
+            <DialogHeader className="pr-8 text-left">
+              <DialogTitle className="text-2xl font-bold uppercase tracking-[0.28em] text-white">
+                Post a quest
+              </DialogTitle>
+              <DialogDescription className="text-[10px] uppercase leading-5 tracking-[0.24em] text-white/40">
+                New field order
+              </DialogDescription>
+            </DialogHeader>
+            <form className="grid gap-3" onSubmit={handleSubmit}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Lane</span>
+                  <select
+                    className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={lane}
+                    onChange={(event) => setLane(event.target.value as QuestLane)}
+                    disabled={pending}
+                  >
+                    {laneConfig.map((config) => (
+                      <option key={config.lane} value={config.lane}>
+                        {config.lane}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Month</span>
+                  <select
+                    className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={month}
+                    onChange={(event) => setMonth(event.target.value)}
+                    disabled={pending}
+                  >
+                    {questMonthOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Title</span>
+                <input
+                  className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  disabled={pending}
+                  required
+                />
+              </label>
+
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <label className="block">
+                  <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">
+                    Target date
+                  </span>
+                  <input
+                    className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={targetDate}
+                    onChange={(event) => setTargetDate(event.target.value)}
+                    placeholder="6/30/26"
+                    disabled={pending}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="mt-auto flex h-10 min-w-36 items-center justify-center gap-2 border border-violet-100/45 bg-violet-300/10 px-4 text-[10px] font-bold uppercase tracking-[0.28em] text-violet-50 transition hover:bg-violet-300/15 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={pending || title.trim().length === 0}
+                >
+                  {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+                  Post
+                </button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
     </Reveal>
   );
 }
