@@ -102,7 +102,9 @@ function subscribe(listener: CelebrationListener) {
     const queued = pendingOutcomes.splice(0, pendingOutcomes.length);
     queued.forEach((outcome) => listener(outcome));
   }
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 function getAudioContext() {
@@ -200,16 +202,27 @@ function ParticleRing({
 function AchievementBanner({
   achievement,
   reducedMotion,
+  onDone,
 }: {
   achievement: AchievementDef;
   reducedMotion: boolean;
+  onDone: () => void;
 }) {
   const tone = rarityTone[achievement.rarity];
   const sprite = spriteByFamily[achievement.sprite];
 
+  // The banner owns its lifetime: a per-instance dismiss timer (no shared ref
+  // to get cleared by re-running parent effects) plus click-to-dismiss.
+  useEffect(() => {
+    const t = window.setTimeout(onDone, 3500);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- arm once per banner
+  }, []);
+
   return (
     <motion.div
-      className="pointer-events-none fixed left-1/2 top-1/2 z-[70] w-[min(92vw,620px)] -translate-x-1/2 -translate-y-1/2"
+      onClick={onDone}
+      className="pointer-events-auto fixed left-1/2 top-1/2 z-[70] w-[min(92vw,620px)] -translate-x-1/2 -translate-y-1/2 cursor-pointer"
       initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.78, y: 28 }}
       animate={reducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
       exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.88, y: -18 }}
@@ -318,7 +331,6 @@ function CelebrationLayer() {
   const [activeAchievement, setActiveAchievement] = useState<AchievementDef | null>(null);
   const [rankFlash, setRankFlash] = useState<RankFlash | null>(null);
   const [wizardMode, setWizardMode] = useState(false);
-  const activeTimerRef = useRef<number | null>(null);
   const wizardTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -366,21 +378,15 @@ function CelebrationLayer() {
   useEffect(() => {
     if (activeAchievement || achievementQueue.length === 0) return;
 
+    // Promote the next achievement; the banner dismisses itself (it owns its
+    // own timer + click-to-dismiss) and clears activeAchievement via onDone.
     const [next, ...rest] = achievementQueue;
     setActiveAchievement(next);
     setAchievementQueue(rest);
-    activeTimerRef.current = window.setTimeout(() => {
-      setActiveAchievement(null);
-    }, 3500);
-
-    return () => {
-      if (activeTimerRef.current) window.clearTimeout(activeTimerRef.current);
-    };
   }, [activeAchievement, achievementQueue]);
 
   useEffect(() => {
     return () => {
-      if (activeTimerRef.current) window.clearTimeout(activeTimerRef.current);
       if (wizardTimerRef.current) window.clearTimeout(wizardTimerRef.current);
     };
   }, []);
@@ -406,15 +412,18 @@ function CelebrationLayer() {
         {rankFlash ? <RankUpFlash flash={rankFlash} reducedMotion={reducedMotion} /> : null}
       </AnimatePresence>
 
-      <AnimatePresence mode="wait">
-        {activeAchievement ? (
-          <AchievementBanner
-            key={activeAchievement.id}
-            achievement={activeAchievement}
-            reducedMotion={reducedMotion}
-          />
-        ) : null}
-      </AnimatePresence>
+      {/* No AnimatePresence here on purpose: exit animations need rAF frames,
+          and a backgrounded/throttled tab produces none — mode="wait" would
+          jam the whole queue behind a frozen exit. Banners swap instantly;
+          the spring entrance still plays whenever frames are available. */}
+      {activeAchievement ? (
+        <AchievementBanner
+          key={activeAchievement.id}
+          achievement={activeAchievement}
+          reducedMotion={reducedMotion}
+          onDone={() => setActiveAchievement(null)}
+        />
+      ) : null}
 
       <AnimatePresence>
         <WizardFlourish active={wizardMode} reducedMotion={reducedMotion} />
