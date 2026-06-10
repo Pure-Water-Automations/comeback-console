@@ -5,6 +5,7 @@ import {
   Coins,
   Heart,
   MapPin,
+  Radar,
   ScrollText,
   Sparkles,
   Trophy,
@@ -24,6 +25,7 @@ import { AttendancePanel } from "./AttendancePanel";
 import { BlessingPanel } from "./BlessingPanel";
 import { FinancePanel } from "./FinancePanel";
 import { OverviewPanel } from "./OverviewPanel";
+import { OutreachPanel } from "./OutreachPanel";
 import { PeoplePanel } from "./PeoplePanel";
 import { celebrate, ProgressHud } from "./ProgressHud";
 import { QuestsPanel } from "./QuestsPanel";
@@ -36,6 +38,7 @@ export const NJ_TAB_IDS = [
   "people",
   "blessing",
   "quests",
+  "outreach",
   "trophies",
 ] as const;
 
@@ -69,6 +72,7 @@ const TABS = [
   { id: "people", label: "People", icon: Users },
   { id: "blessing", label: "Blessing", icon: Heart },
   { id: "quests", label: "Quests", icon: ScrollText },
+  { id: "outreach", label: "Outreach", icon: Radar },
   { id: "trophies", label: "Trophies", icon: Trophy },
 ] satisfies TabConfig[];
 
@@ -318,7 +322,7 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           onValueChange={(value) => onTabChange(value as NJTabId)}
           className="w-full"
         >
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-px border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md md:grid-cols-4 xl:grid-cols-7">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-px border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md md:grid-cols-4 xl:grid-cols-8">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -351,6 +355,9 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           </TabsContent>
           <TabsContent value="quests" className="mt-5">
             <QuestsPanel />
+          </TabsContent>
+          <TabsContent value="outreach" className="mt-5">
+            <OutreachPanel />
           </TabsContent>
           <TabsContent value="trophies" className="mt-5">
             <TrophyRoom />
