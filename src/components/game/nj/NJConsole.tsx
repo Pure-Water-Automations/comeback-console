@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { motion, useScroll, useSpring, useTransform } from "motion/react";
+import { Toaster } from "sonner";
 
 import adventurerSprite from "@/assets/sprites/adventurer/adventurer_victory.png";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -242,6 +243,18 @@ function ConsoleHeader() {
 export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
   return (
     <div className="relative min-h-screen overflow-hidden text-white">
+      <Toaster
+        richColors
+        theme="dark"
+        position="top-right"
+        toastOptions={{
+          classNames: {
+            toast: "border border-white/10 bg-black/90 text-white backdrop-blur-md",
+            title: "text-sm font-bold uppercase tracking-[0.16em]",
+            description: "text-white/60",
+          },
+        }}
+      />
       <CosmicBackdrop />
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 md:px-8 lg:px-10">
         <ConsoleHeader />

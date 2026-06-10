@@ -1,11 +1,14 @@
-import { type ReactNode } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CalendarPlus,
   CheckCircle2,
   CircleDashed,
+  ExternalLink,
   Hammer,
+  Loader2,
   ScrollText,
+  Send,
   ShieldCheck,
   Sparkles,
   Target,
@@ -13,15 +16,24 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { motion, useScroll, useSpring, useTransform } from "motion/react";
+import { toast } from "sonner";
 
 import mentorLetterImg from "@/assets/sprites/mentor/mentor_letter.png";
+import {
+  ACTION_QUEUE_URL,
+  completeQuest,
+  fetchLiveQuests,
+  postQuest,
+  type QuestLane,
+} from "@/lib/njActions";
 import { LES_QUESTS, type LesQuest } from "@/lib/njData";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md";
 
-const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"] as const;
+const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+const questMonthOptions = Array.from({ length: 12 }, (_, index) => `${index + 1}/2026`);
 type MonthName = (typeof monthOrder)[number];
 
 const laneConfig: {
@@ -59,8 +71,15 @@ function formatNumber(value: number) {
 }
 
 function monthIndex(month: string) {
-  const index = monthOrder.indexOf(month as MonthName);
-  return index === -1 ? -1 : index;
+  const trimmed = month.trim();
+  const index = monthOrder.indexOf(trimmed as MonthName);
+  if (index !== -1) return index;
+
+  const match = trimmed.match(/^(\d{1,2})\/2026$/);
+  if (!match) return -1;
+
+  const numericMonth = Number(match[1]);
+  return numericMonth >= 1 && numericMonth <= 12 ? numericMonth - 1 : -1;
 }
 
 function questStatsFor(quests: LesQuest[]) {
@@ -70,6 +89,19 @@ function questStatsFor(quests: LesQuest[]) {
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return { total, done, open, pct };
+}
+
+function questKey(quest: Pick<LesQuest, "lane" | "month" | "title">) {
+  return `${quest.lane}::${quest.month}::${quest.title}`;
+}
+
+function todayShortDate() {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+    timeZone: "America/New_York",
+  }).format(new Date());
 }
 
 function Reveal({
@@ -130,13 +162,18 @@ function FloatingMentor({ className }: { className?: string }) {
   );
 }
 
-function QuestgiverCallout() {
-  const latestQuestMonthIndex = Math.max(...LES_QUESTS.map((quest) => monthIndex(quest.month)));
+function QuestgiverCallout({ quests }: { quests: LesQuest[] }) {
+  const validMonthIndexes = quests.map((quest) => monthIndex(quest.month)).filter((index) => index >= 0);
+  const latestQuestMonthIndex = validMonthIndexes.length ? Math.max(...validMonthIndexes) : 2;
   const latestQuestMonth = monthOrder[latestQuestMonthIndex] ?? "Mar";
-  const emptyMonths = monthOrder.slice(latestQuestMonthIndex + 1);
+  const emptyMonths = monthOrder.slice(latestQuestMonthIndex + 1, 6);
   const emptyWindow =
     emptyMonths.length > 1 ? `${emptyMonths[0]}-${emptyMonths[emptyMonths.length - 1]}` : (emptyMonths[0] ?? "Apr-Jun");
   const latestQuestMonthLabel = latestQuestMonth === "Mar" ? "March" : latestQuestMonth;
+  const gapLine =
+    emptyMonths.length > 0
+      ? `The ${emptyWindow} sheets are empty; post this month's goals.`
+      : "Keep the next sheet ready with this month's goals.";
 
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -172,8 +209,7 @@ function QuestgiverCallout() {
               <p className="text-[10px] uppercase tracking-[0.28em]">Quest posting gap</p>
             </div>
             <p className="text-sm uppercase leading-6 tracking-[0.22em] text-white/55">
-              No new quests have been posted since {latestQuestMonthLabel}. The {emptyWindow} sheets are empty;
-              post this month's goals.
+              No new quests have been posted since {latestQuestMonthLabel}. {gapLine}
             </p>
           </div>
         </div>
@@ -182,7 +218,7 @@ function QuestgiverCallout() {
   );
 }
 
-function LaneProgress() {
+function LaneProgress({ quests }: { quests: LesQuest[] }) {
   return (
     <section>
       <SectionHeader index="01" kicker="Lane progress" title="Quest lanes">
@@ -193,8 +229,8 @@ function LaneProgress() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {laneConfig.map((config, index) => {
-          const quests = LES_QUESTS.filter((quest) => quest.lane === config.lane);
-          const stats = questStatsFor(quests);
+          const laneQuests = quests.filter((quest) => quest.lane === config.lane);
+          const stats = questStatsFor(laneQuests);
           const Icon = config.icon;
 
           return (
@@ -250,7 +286,23 @@ function LaneProgress() {
   );
 }
 
-function QuestCard({ quest, index, accent }: { quest: LesQuest; index: number; accent: string }) {
+function QuestCard({
+  quest,
+  index,
+  accent,
+  completionBusy,
+  completionQueued,
+  isCompleting,
+  onComplete,
+}: {
+  quest: LesQuest;
+  index: number;
+  accent: string;
+  completionBusy: boolean;
+  completionQueued: boolean;
+  isCompleting: boolean;
+  onComplete: (quest: LesQuest) => void;
+}) {
   const completed = Boolean(quest.completedDate);
 
   return (
@@ -307,6 +359,15 @@ function QuestCard({ quest, index, accent }: { quest: LesQuest; index: number; a
               </p>
               <p className="mt-2 font-mono text-lg font-bold text-white">{quest.targetDate ?? "Needs date"}</p>
               <p className="mt-2 text-[10px] uppercase tracking-[0.26em] text-white/28">In progress</p>
+              <button
+                type="button"
+                className="mt-3 flex h-9 w-full items-center justify-center gap-2 border border-amber-100/35 bg-amber-300/10 px-3 text-[9px] font-bold uppercase tracking-[0.24em] text-amber-50 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={completionBusy || completionQueued}
+                onClick={() => onComplete(quest)}
+              >
+                {isCompleting ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                {completionQueued ? "Queued" : "Mark complete"}
+              </button>
             </>
           )}
         </div>
@@ -315,20 +376,169 @@ function QuestCard({ quest, index, accent }: { quest: LesQuest; index: number; a
   );
 }
 
-function GroupedQuestLog() {
+function PostQuestCard() {
+  const [lane, setLane] = useState<QuestLane>("Leadership");
+  const [month, setMonth] = useState("6/2026");
+  const [title, setTitle] = useState("");
+  const [targetDate, setTargetDate] = useState("");
+  const [pending, setPending] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (pending) return;
+
+    setPending(true);
+    try {
+      const res = await postQuest({
+        data: {
+          lane,
+          month,
+          title,
+          targetDate,
+        },
+      });
+
+      if (res.ok) {
+        toast.success(res.message, {
+          description: "Action Queue entry ready for office review.",
+        });
+        setTitle("");
+        setTargetDate("");
+      } else {
+        toast.error(res.message);
+      }
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Reveal className={cn(CARD, "relative overflow-hidden p-5")}>
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(circle at 18% 18%, rgba(168,85,247,0.18), transparent 34%), radial-gradient(circle at 82% 64%, rgba(234,179,8,0.12), transparent 32%)",
+        }}
+      />
+      <form className="relative grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-end" onSubmit={handleSubmit}>
+        <div>
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.34em] text-violet-100/75">Post a quest</p>
+              <h4 className="mt-1 text-3xl font-bold uppercase tracking-[-0.03em] text-white">New field order</h4>
+            </div>
+            <span className="grid h-12 w-12 place-items-center border border-violet-200/30 bg-violet-300/10 text-violet-100">
+              <ScrollText className="size-6" />
+            </span>
+          </div>
+          <a
+            href={ACTION_QUEUE_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-between gap-3 border border-white/10 bg-white/[0.035] p-3 text-[10px] font-bold uppercase leading-5 tracking-[0.22em] text-white/48 transition hover:text-white"
+          >
+            <span>HQ tracker is protected — actions queue here for the office</span>
+            <ExternalLink className="size-4 shrink-0 text-violet-100" />
+          </a>
+        </div>
+
+        <div className="grid gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Lane</span>
+              <select
+                className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+                value={lane}
+                onChange={(event) => setLane(event.target.value as QuestLane)}
+                disabled={pending}
+              >
+                {laneConfig.map((config) => (
+                  <option key={config.lane} value={config.lane}>
+                    {config.lane}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Month</span>
+              <select
+                className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+                value={month}
+                onChange={(event) => setMonth(event.target.value)}
+                disabled={pending}
+              >
+                {questMonthOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Title</span>
+            <input
+              className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              disabled={pending}
+              required
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <label className="block">
+              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Target date</span>
+              <input
+                className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+                value={targetDate}
+                onChange={(event) => setTargetDate(event.target.value)}
+                placeholder="6/30/26"
+                disabled={pending}
+              />
+            </label>
+            <button
+              type="submit"
+              className="mt-auto flex h-10 min-w-36 items-center justify-center gap-2 border border-violet-100/45 bg-violet-300/10 px-4 text-[10px] font-bold uppercase tracking-[0.28em] text-violet-50 transition hover:bg-violet-300/15 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={pending || title.trim().length === 0}
+            >
+              {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              Post
+            </button>
+          </div>
+        </div>
+      </form>
+    </Reveal>
+  );
+}
+
+function GroupedQuestLog({
+  completingQuestKey,
+  onCompleteQuest,
+  queuedCompletionKeys,
+  quests,
+}: {
+  completingQuestKey: string | null;
+  onCompleteQuest: (quest: LesQuest) => void;
+  queuedCompletionKeys: Set<string>;
+  quests: LesQuest[];
+}) {
   return (
     <section>
       <SectionHeader index="02" kicker="RPG cards" title="Active quest log">
         <div className="flex items-center gap-2 text-amber-100">
           <ScrollText className="size-5" />
-          <span className="text-xs uppercase tracking-[0.3em]">Jan-Mar postings</span>
+          <span className="text-xs uppercase tracking-[0.3em]">Live tracker</span>
         </div>
       </SectionHeader>
 
-      <div className="space-y-8">
+      <div className="space-y-5">
+        <PostQuestCard />
         {laneConfig.map((config) => {
-          const quests = LES_QUESTS.filter((quest) => quest.lane === config.lane);
-          const stats = questStatsFor(quests);
+          const laneQuests = quests.filter((quest) => quest.lane === config.lane);
+          const stats = questStatsFor(laneQuests);
           const Icon = config.icon;
 
           return (
@@ -362,8 +572,17 @@ function GroupedQuestLog() {
                 </div>
 
                 <div className="grid gap-3">
-                  {quests.map((quest, index) => (
-                    <QuestCard key={`${quest.lane}-${quest.month}-${quest.title}`} quest={quest} index={index} accent={config.accent} />
+                  {laneQuests.map((quest, index) => (
+                    <QuestCard
+                      key={`${quest.lane}-${quest.month}-${quest.title}`}
+                      quest={quest}
+                      index={index}
+                      accent={config.accent}
+                      completionBusy={Boolean(completingQuestKey)}
+                      completionQueued={queuedCompletionKeys.has(questKey(quest))}
+                      isCompleting={completingQuestKey === questKey(quest)}
+                      onComplete={onCompleteQuest}
+                    />
                   ))}
                 </div>
               </div>
@@ -376,7 +595,10 @@ function GroupedQuestLog() {
 }
 
 export function QuestsPanel() {
-  const totalStats = questStatsFor(LES_QUESTS);
+  const [quests, setQuests] = useState<LesQuest[]>(LES_QUESTS);
+  const [completingQuestKey, setCompletingQuestKey] = useState<string | null>(null);
+  const [queuedCompletionKeys, setQueuedCompletionKeys] = useState<Set<string>>(() => new Set());
+  const totalStats = useMemo(() => questStatsFor(quests), [quests]);
   const { scrollYProgress } = useScroll();
   const smoothProgress = useSpring(scrollYProgress, {
     stiffness: 80,
@@ -384,6 +606,70 @@ export function QuestsPanel() {
     mass: 0.4,
   });
   const haloY = useTransform(smoothProgress, [0, 1], ["0px", "-72px"]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshLiveQuests() {
+      try {
+        const res = await fetchLiveQuests();
+        if (!cancelled && res.ok) {
+          setQuests(
+            res.quests.map((quest) => ({
+              lane: quest.lane,
+              month: quest.month,
+              title: quest.title,
+              targetDate: quest.targetDate || undefined,
+              completedDate: quest.completedDate || undefined,
+            })),
+          );
+        }
+      } catch {
+        // Keep the static LES_QUESTS fallback.
+      }
+    }
+
+    void refreshLiveQuests();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleCompleteQuest = useCallback(
+    async (quest: LesQuest) => {
+      const key = questKey(quest);
+      if (completingQuestKey || queuedCompletionKeys.has(key)) return;
+
+      setCompletingQuestKey(key);
+      try {
+        const res = await completeQuest({
+          data: {
+            lane: quest.lane as QuestLane,
+            month: quest.month,
+            title: quest.title,
+            completedDate: todayShortDate(),
+          },
+        });
+
+        if (res.ok) {
+          toast.success(res.message, {
+            description: "Action Queue entry ready for office review.",
+          });
+          setQueuedCompletionKeys((current) => {
+            const next = new Set(current);
+            next.add(key);
+            return next;
+          });
+        } else {
+          toast.error(res.message);
+        }
+      } finally {
+        setCompletingQuestKey((current) => (current === key ? null : current));
+      }
+    },
+    [completingQuestKey, queuedCompletionKeys],
+  );
 
   return (
     <motion.div
@@ -402,7 +688,7 @@ export function QuestsPanel() {
       />
 
       <div className="relative space-y-12">
-        <QuestgiverCallout />
+        <QuestgiverCallout quests={quests} />
 
         <div className="grid gap-3 border border-white/10 bg-black/60 p-4 backdrop-blur-md sm:grid-cols-3">
           <div className="border border-white/10 bg-white/[0.035] p-4">
@@ -419,8 +705,13 @@ export function QuestsPanel() {
           </div>
         </div>
 
-        <LaneProgress />
-        <GroupedQuestLog />
+        <LaneProgress quests={quests} />
+        <GroupedQuestLog
+          completingQuestKey={completingQuestKey}
+          onCompleteQuest={handleCompleteQuest}
+          queuedCompletionKeys={queuedCompletionKeys}
+          quests={quests}
+        />
 
         <Reveal className={cn(CARD, "border-amber-200/25 p-5 shadow-[0_0_24px_rgba(234,179,8,0.12)]")}>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
