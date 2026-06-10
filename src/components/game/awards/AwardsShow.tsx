@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowRight, Crown, Sparkles, Trophy, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { ArrowLeft, ArrowRight, Crown, Maximize2, Minimize2, Sparkles, Trophy, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 
 import adventurerVictoryImg from "@/assets/sprites/adventurer/adventurer_victory.png";
@@ -8,7 +8,15 @@ import npcLoveImg from "@/assets/sprites/npc/npc_love.png";
 import smartGuyCheerImg from "@/assets/sprites/smart_guy/smart_guy_cheer.png";
 import spiritGlowImg from "@/assets/sprites/spirit/spirit_glow.png";
 import wizardTalkingImg from "@/assets/sprites/wizard/wizard_talking.png";
-import { buildWeeklyAwards, weeklyAwardsMeta, type Award, type AwardTone, type AwardWinner } from "@/lib/weeklyAwards";
+import {
+  buildRegionOverview,
+  buildWeeklyAwards,
+  weeklyAwardsMeta,
+  type Award,
+  type AwardTone,
+  type AwardWinner,
+  type OverviewSlide,
+} from "@/lib/weeklyAwards";
 import { cn } from "@/lib/utils";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -87,6 +95,14 @@ type Star = {
   size: number;
   opacity: number;
 };
+
+type DeckSlide =
+  | { kind: "title"; id: "title"; tone: AwardTone }
+  | { kind: "overview"; id: string; overview: OverviewSlide; overviewNumber: number; tone: AwardTone }
+  | { kind: "award"; id: string; award: Award; awardNumber: number; tone: AwardTone }
+  | { kind: "finale"; id: "finale"; tone: AwardTone };
+
+const OPENING_SLIDE: DeckSlide = { kind: "title", id: "title", tone: "gold" };
 
 let awardsAudioContext: AudioContext | null = null;
 
@@ -199,16 +215,26 @@ function winnerIndexes(count: number) {
   return Array.from({ length: count }, (_, index) => index);
 }
 
-function toneForSlide(slideIndex: number, awards: Award[]): AwardTone {
-  if (slideIndex > 0 && slideIndex <= awards.length) {
-    return awards[slideIndex - 1].tone;
-  }
-
-  return "gold";
+function overviewTone(overview: OverviewSlide, index: number): AwardTone {
+  return overview.stats.find((stat) => stat.tone)?.tone ?? (["blue", "teal", "violet"] as AwardTone[])[index % 3];
 }
 
-function isFinaleIndex(slideIndex: number, awards: Award[]) {
-  return slideIndex === awards.length || slideIndex === awards.length + 1;
+function isFinaleMoment(slide: DeckSlide) {
+  return slide.kind === "finale" || (slide.kind === "award" && slide.award.id === "league-champion");
+}
+
+function slideProgressLabel(slide: DeckSlide, overviewCount: number, awardCount: number) {
+  if (slide.kind === "title") return "Opening";
+  if (slide.kind === "overview") return `Region ${slide.overviewNumber} / ${overviewCount}`;
+  if (slide.kind === "award") return `Award ${slide.awardNumber} / ${awardCount}`;
+  return "Finale";
+}
+
+function slideDotLabel(slide: DeckSlide, overviewCount: number, awardCount: number) {
+  if (slide.kind === "title") return "Go to opening slide";
+  if (slide.kind === "overview") return `Go to region overview ${slide.overviewNumber} of ${overviewCount}`;
+  if (slide.kind === "award") return `Go to award ${slide.awardNumber} of ${awardCount}: ${slide.award.title}`;
+  return "Go to finale recap";
 }
 
 function isInteractiveElement(target: EventTarget | null) {
@@ -371,7 +397,9 @@ function Sprite({
       alt={`${winner.community} mascot`}
       className={cn(
         "mx-auto object-contain [image-rendering:pixelated] drop-shadow-2xl",
-        primary ? "h-40 w-40 md:h-52 md:w-52" : "h-28 w-28 md:h-36 md:w-36",
+        primary
+          ? "h-[min(16vh,9.5rem)] w-[min(16vh,9.5rem)]"
+          : "h-[min(10vh,5.75rem)] w-[min(10vh,5.75rem)] md:h-[min(12vh,7rem)] md:w-[min(12vh,7rem)]",
       )}
       style={{ filter: `drop-shadow(0 0 ${primary ? 34 : 24}px ${color})` }}
       animate={reducedMotion ? undefined : { y: [0, primary ? -14 : -10, 0] }}
@@ -400,8 +428,8 @@ function WinnerCard({
       className={cn(
         "relative min-w-0 overflow-hidden border bg-black/68 backdrop-blur-md",
         tone.border,
-        primary ? "p-5 shadow-[0_0_58px_rgba(255,255,255,0.13)] md:p-7" : "p-4 md:p-5",
-        compact && "p-4 md:p-4",
+        primary ? "p-4 shadow-[0_0_48px_rgba(255,255,255,0.13)] md:p-5" : "p-3 md:p-4",
+        compact && "p-2.5 md:p-3",
       )}
       initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.94 }}
       animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
@@ -418,26 +446,44 @@ function WinnerCard({
         }}
       />
       <div className="relative">
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
           <span className={cn("border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.28em]", tone.chip)}>
             {ordinal(rank)}
           </span>
           <span className="text-[10px] uppercase tracking-[0.28em] text-white/38">Winner</span>
         </div>
         <Sprite winner={winner} primary={primary && !compact} reducedMotion={reducedMotion} color={tone.color} />
-        <div className="mt-4 text-center">
+        <div className="mt-3 text-center">
           <h3
             className={cn(
-              "display mx-auto max-w-[12ch] uppercase leading-none text-white",
-              primary && !compact ? "text-4xl md:text-6xl" : "text-3xl md:text-4xl",
+              "display mx-auto max-w-[15ch] break-words uppercase leading-[0.86] text-white text-balance [overflow-wrap:anywhere]",
+              primary && !compact
+                ? "text-[clamp(1.7rem,3.5vw,3rem)]"
+                : compact
+                  ? "text-[clamp(1rem,2vw,1.75rem)]"
+                  : "text-[clamp(1.2rem,2.7vw,2.35rem)]",
             )}
           >
             {winner.community}
           </h3>
-          <p className={cn("mt-3 font-black uppercase leading-none", tone.text, primary ? "text-3xl md:text-5xl" : "text-2xl md:text-3xl")}>
+          <p
+            className={cn(
+              "mt-2 break-words font-black uppercase leading-[0.9] [overflow-wrap:anywhere]",
+              tone.text,
+              primary && !compact
+                ? "text-[clamp(1.35rem,2.7vw,2.45rem)]"
+                : compact
+                  ? "text-[clamp(0.95rem,1.8vw,1.45rem)]"
+                  : "text-[clamp(1.1rem,2.35vw,2.1rem)]",
+            )}
+          >
             {winner.stat}
           </p>
-          {winner.detail ? <p className="mt-3 text-xs uppercase tracking-[0.24em] text-white/50">{winner.detail}</p> : null}
+          {winner.detail ? (
+            <p className="mt-2 break-words text-[10px] uppercase leading-4 tracking-[0.2em] text-white/50 [overflow-wrap:anywhere]">
+              {winner.detail}
+            </p>
+          ) : null}
         </div>
       </div>
     </motion.div>
@@ -452,11 +498,11 @@ function WinnersStage({ award, tone, reducedMotion }: { award: Award; tone: (typ
   return (
     <div
       className={cn(
-        "mx-auto mt-7 grid w-full gap-4",
+        "mx-auto mt-[min(2.6vh,1.5rem)] grid w-full gap-2.5 sm:gap-3 lg:gap-4",
         single && "max-w-4xl",
         award.winners.length === 2 && "max-w-5xl md:grid-cols-2 md:items-end",
         award.winners.length === 3 && "max-w-6xl md:grid-cols-3 md:items-end",
-        many && "max-w-7xl grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+        many && "max-w-7xl grid-cols-2 sm:grid-cols-3 lg:grid-cols-4",
       )}
     >
       {indexes.map((winnerIndex) => {
@@ -485,7 +531,7 @@ function SlideShell({ children, slideKey, reducedMotion }: { children: ReactNode
   return (
     <motion.section
       key={slideKey}
-      className="relative z-10 flex min-h-screen w-full flex-col justify-center overflow-hidden px-5 py-20 text-white md:px-10 lg:px-14"
+      className="relative z-10 grid h-screen h-[100dvh] w-full place-items-center overflow-hidden px-4 py-[clamp(2.75rem,5vh,4rem)] text-white sm:px-5 md:px-8 lg:px-10"
       initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 34, scale: 0.96 }}
       animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
       transition={
@@ -515,60 +561,155 @@ function TitleSlide({
             "radial-gradient(circle at 50% 22%, rgba(250,204,21,0.18), transparent 34%), radial-gradient(circle at 80% 42%, rgba(79,127,255,0.16), transparent 30%)",
         }}
       />
-      <div className="relative mx-auto grid w-full max-w-7xl gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)] lg:items-center">
+      <div className="relative mx-auto grid max-h-[calc(100dvh-5.5rem)] w-full max-w-7xl gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(300px,0.95fr)] lg:items-center">
         <div>
           <motion.p
-            className="text-sm font-bold uppercase tracking-[0.4em] text-signal"
+            className="text-xs font-bold uppercase tracking-[0.4em] text-signal sm:text-sm"
             initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 14 }}
             animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE }}
           >
             Wednesday Northeast recognition
           </motion.p>
-          <h1 className="display mt-5 text-6xl uppercase leading-[0.86] text-white sm:text-8xl md:text-9xl lg:text-[9.5rem]">
+          <h1 className="display mt-4 text-[clamp(3.25rem,9vw,8.5rem)] uppercase leading-[0.84] text-white">
             <span className="block text-[0.72em] leading-none">🏆</span>
             Awards Night
           </h1>
-          <p className="mt-6 text-base uppercase tracking-[0.34em] text-white/62 md:text-lg">{meta.trimesterLabel}</p>
-          <p className="mt-4 text-2xl font-black uppercase text-white md:text-4xl">
+          <p className="mt-4 text-sm uppercase tracking-[0.34em] text-white/62 md:text-base">{meta.trimesterLabel}</p>
+          <p className="mt-3 text-xl font-black uppercase text-white md:text-3xl">
             {meta.communityCount} communities · {meta.awardCount} awards
           </p>
           <button
             type="button"
             onClick={onBegin}
-            className="mt-9 inline-flex items-center gap-3 border border-amber-200/45 bg-amber-300/15 px-6 py-4 text-xs font-black uppercase tracking-[0.34em] text-amber-100 shadow-[0_0_42px_rgba(250,204,21,0.24)] backdrop-blur-md transition-colors hover:border-amber-100 hover:bg-amber-300/22"
+            className="mt-6 inline-flex items-center gap-3 border border-amber-200/45 bg-amber-300/15 px-5 py-3.5 text-xs font-black uppercase tracking-[0.34em] text-amber-100 shadow-[0_0_42px_rgba(250,204,21,0.24)] backdrop-blur-md transition-colors hover:border-amber-100 hover:bg-amber-300/22"
           >
             <Sparkles className="h-5 w-5" />
             Begin the Ceremony
           </button>
         </div>
-        <div className="relative hidden min-h-[420px] lg:block">
-          <div className="absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 border border-white/10 bg-black/50 shadow-[0_0_70px_rgba(250,204,21,0.18)] backdrop-blur-md" />
+        <div className="relative hidden h-[min(42vh,390px)] lg:block">
+          <div className="absolute left-1/2 top-1/2 h-[min(28vh,17rem)] w-[min(28vh,17rem)] -translate-x-1/2 -translate-y-1/2 border border-white/10 bg-black/50 shadow-[0_0_70px_rgba(250,204,21,0.18)] backdrop-blur-md" />
           <motion.img
             src={mentorCheerImg}
             alt=""
-            className="absolute left-[18%] top-[22%] h-44 w-44 object-contain [image-rendering:pixelated] drop-shadow-2xl"
+            className="absolute left-[18%] top-[22%] h-[min(17vh,10rem)] w-[min(17vh,10rem)] object-contain [image-rendering:pixelated] drop-shadow-2xl"
             animate={reducedMotion ? undefined : { y: [0, -12, 0] }}
             transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
           />
           <motion.img
             src={adventurerVictoryImg}
             alt=""
-            className="absolute left-[38%] top-[7%] h-56 w-56 object-contain [image-rendering:pixelated] drop-shadow-2xl"
+            className="absolute left-[38%] top-[7%] h-[min(21vh,13rem)] w-[min(21vh,13rem)] object-contain [image-rendering:pixelated] drop-shadow-2xl"
             animate={reducedMotion ? undefined : { y: [0, -16, 0] }}
             transition={{ duration: 1, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
           />
           <motion.img
             src={spiritGlowImg}
             alt=""
-            className="absolute left-[56%] top-[35%] h-40 w-40 object-contain [image-rendering:pixelated] drop-shadow-2xl"
+            className="absolute left-[56%] top-[35%] h-[min(15vh,9rem)] w-[min(15vh,9rem)] object-contain [image-rendering:pixelated] drop-shadow-2xl"
             animate={reducedMotion ? undefined : { y: [0, -10, 0] }}
             transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
           />
-          <div className="absolute bottom-8 left-10 right-10 border border-white/10 bg-black/70 p-4 text-center text-xs font-bold uppercase tracking-[0.34em] text-white/58 backdrop-blur-md">
+          <div className="absolute bottom-6 left-10 right-10 border border-white/10 bg-black/70 p-3 text-center text-xs font-bold uppercase tracking-[0.34em] text-white/58 backdrop-blur-md">
             Operation COMEBACK
           </div>
         </div>
+      </div>
+    </SlideShell>
+  );
+}
+
+function RegionOverviewSlide({
+  overview,
+  overviewNumber,
+  overviewCount,
+  reducedMotion,
+}: {
+  overview: OverviewSlide;
+  overviewNumber: number;
+  overviewCount: number;
+  reducedMotion: boolean;
+}) {
+  const activeTone = overviewTone(overview, overviewNumber - 1);
+  const tone = TONES[activeTone];
+
+  return (
+    <SlideShell slideKey={overview.id} reducedMotion={reducedMotion}>
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: `radial-gradient(circle at 50% 18%, ${tone.wash}, transparent 34%), radial-gradient(circle at 12% 74%, rgba(45,212,191,0.12), transparent 28%), radial-gradient(circle at 88% 68%, rgba(168,85,247,0.12), transparent 30%)`,
+        }}
+      />
+      <div className="relative mx-auto flex max-h-[calc(100dvh-5.5rem)] w-full max-w-7xl flex-col justify-center text-center">
+        <p className="text-xs font-bold uppercase tracking-[0.4em] text-signal sm:text-sm">
+          {overview.kicker} · Region {overviewNumber} / {overviewCount}
+        </p>
+        <h2 className="display mx-auto mt-3 max-w-[12ch] break-words text-[clamp(2.35rem,6.4vw,6.6rem)] uppercase leading-[0.84] text-white text-balance [overflow-wrap:anywhere]">
+          {overview.title}
+        </h2>
+        <p className="mx-auto mt-3 max-w-4xl text-[clamp(0.82rem,1.6vw,1.15rem)] font-bold uppercase leading-[1.35] tracking-[0.3em] text-white/55">
+          {overview.subtitle}
+        </p>
+
+        <div
+          className={cn(
+            "mt-[min(4vh,2rem)] grid w-full gap-3",
+            overview.stats.length === 3 ? "sm:grid-cols-3" : "grid-cols-2 lg:grid-cols-4",
+          )}
+        >
+          {overview.stats.map((stat, index) => {
+            const statTone = TONES[stat.tone ?? activeTone];
+
+            return (
+              <motion.div
+                key={`${overview.id}-${stat.label}`}
+                className={cn("relative min-w-0 overflow-hidden border bg-black/66 p-3 backdrop-blur-md md:p-4 lg:p-5", statTone.border)}
+                initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.96 }}
+                animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.45, ease: EASE, delay: reducedMotion ? 0 : 0.06 * index }}
+              >
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background: `radial-gradient(circle at 50% 0%, ${statTone.wash}, transparent 48%)`,
+                  }}
+                />
+                <div className="relative">
+                  <p className="text-[10px] font-black uppercase leading-4 tracking-[0.28em] text-white/46">
+                    {stat.label}
+                  </p>
+                  <p
+                    className="display mt-2 break-words text-[clamp(2rem,5vw,5.1rem)] uppercase leading-[0.82] [overflow-wrap:anywhere]"
+                    style={{
+                      color: statTone.color,
+                      textShadow: `0 0 34px ${statTone.glow}`,
+                    }}
+                  >
+                    {stat.value}
+                  </p>
+                  {stat.sub ? (
+                    <p className="mx-auto mt-3 max-w-[22ch] text-[clamp(0.65rem,1.1vw,0.86rem)] font-bold uppercase leading-[1.3] tracking-[0.18em] text-white/45">
+                      {stat.sub}
+                    </p>
+                  ) : null}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {overview.blurb ? (
+          <motion.p
+            className="mx-auto mt-[min(3vh,1.5rem)] max-w-5xl border-l-2 border-white/18 bg-black/45 px-4 py-2.5 text-center text-[clamp(0.72rem,1.18vw,0.98rem)] font-bold uppercase leading-[1.35] tracking-[0.16em] text-white/70 backdrop-blur-md"
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
+            animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: EASE, delay: 0.2 }}
+          >
+            {overview.blurb}
+          </motion.p>
+        ) : null}
       </div>
     </SlideShell>
   );
@@ -596,15 +737,15 @@ function AwardSlide({
           background: `radial-gradient(circle at 50% 18%, ${tone.wash}, transparent 34%), radial-gradient(circle at 12% 74%, rgba(255,255,255,0.06), transparent 28%)`,
         }}
       />
-      <div className="relative mx-auto w-full max-w-7xl">
-        <div className="grid gap-8 lg:grid-cols-[minmax(240px,0.42fr)_minmax(0,1fr)] lg:items-center">
-          <div className="relative mx-auto grid h-48 w-48 place-items-center md:h-64 md:w-64 lg:h-80 lg:w-80">
+      <div className="relative mx-auto flex max-h-[calc(100dvh-5.5rem)] w-full max-w-7xl flex-col justify-center">
+        <div className="grid gap-4 lg:grid-cols-[minmax(170px,0.34fr)_minmax(0,1fr)] lg:items-center">
+          <div className="relative mx-auto grid h-[min(18vh,12rem)] w-[min(18vh,12rem)] place-items-center md:h-[min(20vh,14rem)] md:w-[min(20vh,14rem)] lg:h-[min(22vh,16rem)] lg:w-[min(22vh,16rem)]">
             <div
               className={cn("absolute inset-0 border bg-black/55 backdrop-blur-md", tone.border)}
               style={{ boxShadow: `0 0 86px ${tone.glow}` }}
             />
             <motion.div
-              className="relative text-8xl md:text-9xl lg:text-[10rem]"
+              className="relative text-[clamp(3.75rem,10vh,7.5rem)]"
               style={{ textShadow: `0 0 42px ${tone.color}` }}
               animate={reducedMotion ? undefined : { scale: [1, 1.06, 1], rotate: [0, -2, 0, 2, 0] }}
               transition={{ duration: isChampion ? 1.2 : 1.6, repeat: Infinity, ease: "easeInOut" }}
@@ -613,14 +754,16 @@ function AwardSlide({
             </motion.div>
           </div>
           <div className="text-center lg:text-left">
-            <p className={cn("text-sm font-bold uppercase tracking-[0.4em]", tone.text)}>
+            <p className={cn("text-xs font-bold uppercase tracking-[0.4em] sm:text-sm", tone.text)}>
               {String(awardNumber).padStart(2, "0")} · Award {awardNumber} / {awardCount}
             </p>
-            <p className="mt-4 text-xs font-bold uppercase tracking-[0.4em] text-white/45">{award.subtitle}</p>
+            <p className="mt-2 text-[10px] font-bold uppercase leading-4 tracking-[0.34em] text-white/45 sm:text-xs">
+              {award.subtitle}
+            </p>
             <h2
               className={cn(
-                "display mt-5 uppercase leading-none text-white",
-                isChampion ? "text-6xl md:text-8xl lg:text-[8.5rem]" : "text-5xl md:text-7xl lg:text-8xl",
+                "display mt-3 break-words uppercase leading-[0.84] text-white text-balance [overflow-wrap:anywhere]",
+                isChampion ? "text-[clamp(2.5rem,7.8vw,7.6rem)]" : "text-[clamp(2.25rem,7vw,6.9rem)]",
               )}
             >
               {award.title}
@@ -630,7 +773,7 @@ function AwardSlide({
         <WinnersStage award={award} tone={tone} reducedMotion={reducedMotion} />
         {award.blurb ? (
           <motion.p
-            className="mx-auto mt-6 max-w-5xl border-l-2 border-white/18 bg-black/45 px-5 py-4 text-center text-base font-bold uppercase leading-7 tracking-[0.16em] text-white/70 backdrop-blur-md md:text-lg"
+            className="mx-auto mt-[min(2vh,1rem)] max-w-5xl border-l-2 border-white/18 bg-black/45 px-4 py-2.5 text-center text-[clamp(0.68rem,1.12vw,0.95rem)] font-bold uppercase leading-[1.35] tracking-[0.16em] text-white/70 backdrop-blur-md"
             initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 12 }}
             animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE, delay: 0.2 }}
@@ -661,19 +804,19 @@ function FinaleSlide({
             "radial-gradient(circle at 50% 18%, rgba(250,204,21,0.2), transparent 34%), radial-gradient(circle at 16% 78%, rgba(45,212,191,0.13), transparent 30%), radial-gradient(circle at 84% 76%, rgba(168,85,247,0.16), transparent 30%)",
         }}
       />
-      <div className="relative mx-auto w-full max-w-7xl">
-        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+      <div className="relative mx-auto flex max-h-[calc(100dvh-5.5rem)] w-full max-w-7xl flex-col justify-center">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.4em] text-amber-100">Finale Recap</p>
-            <h2 className="display mt-4 text-5xl uppercase leading-none text-white md:text-7xl lg:text-8xl">
+            <p className="text-xs font-bold uppercase tracking-[0.4em] text-amber-100 sm:text-sm">Finale Recap</p>
+            <h2 className="display mt-2 break-words text-[clamp(2.6rem,7.2vw,6.8rem)] uppercase leading-[0.86] text-white text-balance [overflow-wrap:anywhere]">
               Tonight's Winners
             </h2>
           </div>
-          <div className="border border-amber-200/35 bg-amber-300/12 px-4 py-3 text-xs font-bold uppercase tracking-[0.28em] text-amber-100 backdrop-blur-md">
+          <div className="border border-amber-200/35 bg-amber-300/12 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.28em] text-amber-100 backdrop-blur-md sm:text-xs">
             {meta.trimesterLabel}
           </div>
         </div>
-        <div className="mt-8 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-[min(3vh,1.5rem)] grid grid-cols-2 gap-2.5 xl:grid-cols-3">
           {awards.map((award, index) => {
             const tone = TONES[award.tone];
             const winners = award.winners.map((winner) => `${winner.community} (${winner.stat})`).join(" · ");
@@ -681,7 +824,7 @@ function FinaleSlide({
             return (
               <motion.div
                 key={award.id}
-                className={cn("relative overflow-hidden border bg-black/64 p-4 backdrop-blur-md", tone.border)}
+                className={cn("relative min-w-0 overflow-hidden border bg-black/64 p-2.5 backdrop-blur-md sm:p-3", tone.border)}
                 initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 18 }}
                 animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
                 transition={{ duration: 0.45, ease: EASE, delay: reducedMotion ? 0 : 0.025 * index }}
@@ -693,22 +836,24 @@ function FinaleSlide({
                   }}
                 />
                 <div className="relative flex items-start gap-3">
-                  <span className="text-3xl" style={{ textShadow: `0 0 22px ${tone.color}` }}>
+                  <span className="shrink-0 text-[clamp(1.35rem,2vw,2rem)] leading-none" style={{ textShadow: `0 0 22px ${tone.color}` }}>
                     {award.emoji}
                   </span>
                   <div className="min-w-0">
-                    <p className={cn("text-[10px] font-black uppercase tracking-[0.28em]", tone.text)}>
+                    <p className={cn("break-words text-[9px] font-black uppercase leading-3 tracking-[0.22em] [overflow-wrap:anywhere]", tone.text)}>
                       {String(index + 1).padStart(2, "0")} · {award.title}
                     </p>
-                    <p className="mt-2 text-sm font-bold uppercase leading-5 text-white">{winners}</p>
+                    <p className="mt-1.5 break-words text-[clamp(0.62rem,0.92vw,0.82rem)] font-bold uppercase leading-[1.15] text-white text-balance [overflow-wrap:anywhere]">
+                      {winners}
+                    </p>
                   </div>
                 </div>
               </motion.div>
             );
           })}
         </div>
-        <div className="mt-8 flex items-center justify-center gap-3 text-center text-xs font-bold uppercase tracking-[0.34em] text-white/48">
-          <Crown className="h-5 w-5 text-amber-200" />
+        <div className="mt-[min(2.6vh,1.25rem)] flex items-center justify-center gap-3 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-white/48 sm:text-xs">
+          <Crown className="h-4 w-4 text-amber-200 sm:h-5 sm:w-5" />
           League Champion energy carries into next Wednesday
         </div>
       </div>
@@ -718,31 +863,33 @@ function FinaleSlide({
 
 function ProgressRail({
   slideIndex,
-  awards,
+  deck,
+  overviewCount,
+  awardCount,
   onDot,
 }: {
   slideIndex: number;
-  awards: Award[];
+  deck: DeckSlide[];
+  overviewCount: number;
+  awardCount: number;
   onDot: (index: number, event: MouseEvent<HTMLButtonElement>) => void;
 }) {
-  const totalSlides = awards.length + 2;
-  const label =
-    slideIndex === 0
-      ? "Opening"
-      : slideIndex === totalSlides - 1
-        ? "Finale"
-        : `Award ${slideIndex} / ${awards.length}`;
+  const activeSlide = deck[slideIndex] ?? OPENING_SLIDE;
+  const label = slideProgressLabel(activeSlide, overviewCount, awardCount);
 
   return (
     <div className="fixed left-4 top-4 z-40 flex items-center gap-3 border border-white/10 bg-black/62 px-3 py-2 text-white/70 backdrop-blur-md md:left-6 md:top-6">
       <Trophy className="h-4 w-4 text-amber-200" />
       <span className="text-[10px] font-bold uppercase tracking-[0.3em]">{label}</span>
+      <span className="hidden border-l border-white/12 pl-3 text-[10px] font-bold uppercase tracking-[0.24em] text-white/38 lg:inline">
+        Slide {slideIndex + 1} / {deck.length}
+      </span>
       <div className="hidden items-center gap-1.5 md:flex">
-        {Array.from({ length: totalSlides }, (_, index) => (
+        {deck.map((slide, index) => (
           <button
-            key={index}
+            key={slide.id}
             type="button"
-            aria-label={`Go to slide ${index + 1}`}
+            aria-label={slideDotLabel(slide, overviewCount, awardCount)}
             onClick={(event) => onDot(index, event)}
             className={cn(
               "h-1.5 transition-all",
@@ -760,27 +907,41 @@ function Controls({
   canNext,
   onBack,
   onNext,
+  onToggleFullscreen,
   onExit,
+  isFullscreen,
 }: {
   canBack: boolean;
   canNext: boolean;
   onBack: (event: MouseEvent<HTMLButtonElement>) => void;
   onNext: (event: MouseEvent<HTMLButtonElement>) => void;
+  onToggleFullscreen: (event: MouseEvent<HTMLButtonElement>) => void;
   onExit: (event: MouseEvent<HTMLButtonElement>) => void;
+  isFullscreen: boolean;
 }) {
   return (
     <>
-      <button
-        type="button"
-        aria-label="Return to title"
-        onClick={onExit}
-        className="fixed right-4 top-4 z-40 grid h-10 w-10 place-items-center border border-white/12 bg-black/62 text-white/62 backdrop-blur-md transition-colors hover:border-white/35 hover:text-white md:right-6 md:top-6"
-      >
-        <X className="h-5 w-5" />
-      </button>
+      <div className="fixed right-4 top-4 z-40 flex items-center gap-2 md:right-6 md:top-6">
+        <button
+          type="button"
+          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          onClick={onToggleFullscreen}
+          className="grid h-10 w-10 place-items-center border border-white/12 bg-black/62 text-white/62 backdrop-blur-md transition-colors hover:border-white/35 hover:text-white"
+        >
+          {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+        </button>
+        <button
+          type="button"
+          aria-label="Return to title"
+          onClick={onExit}
+          className="grid h-10 w-10 place-items-center border border-white/12 bg-black/62 text-white/62 backdrop-blur-md transition-colors hover:border-white/35 hover:text-white"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
       <div className="fixed bottom-4 left-4 right-4 z-40 flex flex-col gap-3 md:bottom-6 md:left-6 md:right-6 md:flex-row md:items-center md:justify-between">
         <div className="border border-white/10 bg-black/62 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-white/45 backdrop-blur-md md:text-left">
-          → next · ← back · Esc exit
+          → next · ← back · F fullscreen · Esc exit
         </div>
         <div className="flex items-center justify-center gap-2">
           <button
@@ -809,24 +970,67 @@ function Controls({
 
 export function AwardsShow() {
   const awards = useMemo(() => buildWeeklyAwards(), []);
+  const overviewSlides = useMemo(() => buildRegionOverview(), []);
   const meta = useMemo(() => weeklyAwardsMeta(awards), [awards]);
+  const deck = useMemo<DeckSlide[]>(() => {
+    const slides: DeckSlide[] = [
+      OPENING_SLIDE,
+      ...overviewSlides.map((overview, index): DeckSlide => ({
+        kind: "overview",
+        id: `overview-${overview.id}`,
+        overview,
+        overviewNumber: index + 1,
+        tone: overviewTone(overview, index),
+      })),
+      ...awards.map((award, index): DeckSlide => ({
+        kind: "award",
+        id: `award-${award.id}`,
+        award,
+        awardNumber: index + 1,
+        tone: award.tone,
+      })),
+      { kind: "finale", id: "finale", tone: "gold" },
+    ];
+
+    return slides;
+  }, [awards, overviewSlides]);
   const reducedMotion = useReducedMotion() ?? false;
-  const totalSlides = awards.length + 2;
+  const totalSlides = deck.length;
+  const rootRef = useRef<HTMLDivElement>(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [burst, setBurst] = useState<Burst | null>(null);
-  const activeTone = toneForSlide(slideIndex, awards);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const activeSlide = deck[slideIndex] ?? OPENING_SLIDE;
+  const activeTone = activeSlide.tone;
+
+  const toggleFullscreen = useCallback(() => {
+    if (typeof document === "undefined") return;
+
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) {
+        void document.exitFullscreen().catch(() => undefined);
+      }
+      return;
+    }
+
+    if (rootRef.current?.requestFullscreen) {
+      void rootRef.current.requestFullscreen().catch(() => undefined);
+    }
+  }, []);
 
   const triggerSlideEffects = useCallback(
     (nextIndex: number) => {
-      const nextTone = toneForSlide(nextIndex, awards);
+      const nextSlide = deck[nextIndex] ?? OPENING_SLIDE;
+
+      const nextTone = nextSlide.tone;
       if (!reducedMotion) {
         setBurst({ id: Date.now(), color: TONES[nextTone].color });
       }
-      if (nextIndex > 0) {
-        playFanfare(isFinaleIndex(nextIndex, awards));
+      if (nextSlide.kind !== "title") {
+        playFanfare(isFinaleMoment(nextSlide));
       }
     },
-    [awards, reducedMotion],
+    [deck, reducedMotion],
   );
 
   const goTo = useCallback(
@@ -846,8 +1050,26 @@ export function AwardsShow() {
   const goTitle = useCallback(() => goTo(0, true), [goTo]);
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === rootRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    handleFullscreenChange();
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (isInteractiveElement(event.target)) return;
+
+      if (event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        toggleFullscreen();
+        return;
+      }
 
       if (event.key === "ArrowRight" || event.key === " ") {
         event.preventDefault();
@@ -869,7 +1091,7 @@ export function AwardsShow() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [goBack, goNext, goTitle]);
+  }, [goBack, goNext, goTitle, toggleFullscreen]);
 
   const handleStageClick = (event: MouseEvent<HTMLDivElement>) => {
     if (isInteractiveElement(event.target)) return;
@@ -891,6 +1113,11 @@ export function AwardsShow() {
     goNext();
   };
 
+  const handleToggleFullscreen = (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    toggleFullscreen();
+  };
+
   const handleExit = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     goTitle();
@@ -901,27 +1128,44 @@ export function AwardsShow() {
     goTo(index);
   };
 
-  const activeAward = slideIndex > 0 && slideIndex <= awards.length ? awards[slideIndex - 1] : null;
-
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0a0a0b] text-white" onClick={handleStageClick}>
+    <div
+      ref={rootRef}
+      className="relative h-screen h-[100dvh] overflow-hidden bg-[#0a0a0b] text-white"
+      onClick={handleStageClick}
+    >
       <CosmicBackdrop tone={activeTone} />
       <ParticleBurst burst={burst} reducedMotion={reducedMotion} />
-      <ProgressRail slideIndex={slideIndex} awards={awards} onDot={handleDot} />
+      <ProgressRail
+        slideIndex={slideIndex}
+        deck={deck}
+        overviewCount={overviewSlides.length}
+        awardCount={awards.length}
+        onDot={handleDot}
+      />
       <Controls
         canBack={slideIndex > 0}
         canNext={slideIndex < totalSlides - 1}
         onBack={handleBack}
         onNext={handleNext}
+        onToggleFullscreen={handleToggleFullscreen}
         onExit={handleExit}
+        isFullscreen={isFullscreen}
       />
 
-      {slideIndex === 0 ? (
+      {activeSlide.kind === "title" ? (
         <TitleSlide meta={meta} onBegin={handleBegin} reducedMotion={reducedMotion} />
-      ) : activeAward ? (
+      ) : activeSlide.kind === "overview" ? (
+        <RegionOverviewSlide
+          overview={activeSlide.overview}
+          overviewNumber={activeSlide.overviewNumber}
+          overviewCount={overviewSlides.length}
+          reducedMotion={reducedMotion}
+        />
+      ) : activeSlide.kind === "award" ? (
         <AwardSlide
-          award={activeAward}
-          awardNumber={slideIndex}
+          award={activeSlide.award}
+          awardNumber={activeSlide.awardNumber}
           awardCount={awards.length}
           reducedMotion={reducedMotion}
         />
