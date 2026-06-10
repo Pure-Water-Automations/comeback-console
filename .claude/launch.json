@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "52690", "--strictPort", "false"],
+      "port": 52690,
+      "autoPort": false
+    }
+  ]
+}

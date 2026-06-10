@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectLabel,
   SelectTrigger,
@@ -327,21 +328,23 @@ function CommunityPicker({
         <SelectValue placeholder="Choose community" />
       </SelectTrigger>
       <SelectContent className="rounded-none border-white/15 bg-[#050509]/95 text-white shadow-[0_0_28px_rgba(45,212,191,0.14)] backdrop-blur-xl">
-        <SelectLabel className="px-3 py-2 text-[11px] uppercase tracking-[0.3em] text-white/45">
-          Communities
-        </SelectLabel>
-        {COMMUNITIES.map((community) => (
-          <SelectItem
-            key={community.id}
-            textValue={community.shortName}
-            value={community.id}
-            className="rounded-none py-2 pl-3 pr-9 text-white/80 focus:bg-cyan-300/10 focus:text-cyan-50"
-          >
-            <span className="text-sm font-bold uppercase tracking-[0.12em]">
-              {community.shortName} / {community.team}
-            </span>
-          </SelectItem>
-        ))}
+        <SelectGroup>
+          <SelectLabel className="px-3 py-2 text-[11px] uppercase tracking-[0.3em] text-white/45">
+            Communities
+          </SelectLabel>
+          {COMMUNITIES.map((community) => (
+            <SelectItem
+              key={community.id}
+              textValue={community.shortName}
+              value={community.id}
+              className="rounded-none py-2 pl-3 pr-9 text-white/80 focus:bg-cyan-300/10 focus:text-cyan-50"
+            >
+              <span className="text-sm font-bold uppercase tracking-[0.12em]">
+                {community.shortName} / {community.team}
+              </span>
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   );

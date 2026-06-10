@@ -1,9 +1,8 @@
 // Operation COMEBACK — T2 (May 1 – Aug 31, 2026) Northeast Region data.
 // Snapshot of the May 2026 regional scoreboard (sanitized POC copy).
-// Scoring follows the campaign rule: points = (result % of target − 100) × 10,
-// so a community at exactly its growth target scores 0 and every percent of
-// growth beyond it earns 10 points. Targets are baseline +10% donations,
-// +20% active members, +30% blessing.
+// Scoring follows the campaign rule: points = growth % over baseline × 10,
+// so every percent of growth from baseline earns 10 points. Targets are
+// baseline +10% donations, +20% active members, +30% blessing.
 
 export type CommunitySize = "Extra Large" | "Medium" | "Small" | "Family Group";
 
@@ -321,11 +320,14 @@ export function pctOfTarget(s: CategoryScore): number {
   return (s.result / s.target) * 100;
 }
 
-/** Campaign points: every percent above/below target is worth ±10 points */
+/**
+ * Campaign points, matching the regional scoreboard formula: growth percent
+ * over BASELINE × 10 (e.g. +19.2% growth = +192 points). Communities with no
+ * result entered yet score 0 rather than a penalty.
+ */
 export function categoryPoints(s: CategoryScore): number {
-  const pct = pctOfTarget(s);
-  if (pct === 0) return 0;
-  return Math.round((pct - 100) * 10);
+  if (!s.baseline || !s.result) return 0;
+  return Math.round((s.result / s.baseline - 1) * 1000);
 }
 
 export function totalPoints(c: Community): number {
