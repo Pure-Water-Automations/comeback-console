@@ -11,6 +11,7 @@ import {
   type RosterPerson,
   type SundayColumn,
 } from "@/lib/njActions";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
@@ -75,6 +76,7 @@ export function RollCallSection() {
   const [loadingSundays, setLoadingSundays] = useState(true);
   const [newSundayDate, setNewSundayDate] = useState("");
   const [addingSunday, setAddingSunday] = useState(false);
+  const [addSundayOpen, setAddSundayOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<RosterPerson[]>([]);
   const [searching, setSearching] = useState(false);
@@ -177,6 +179,7 @@ export function RollCallSection() {
         celebrate(award("sunday_added"));
         setNewSundayDate("");
         await refreshSundays(res.col);
+        setAddSundayOpen(false);
       }
     } finally {
       setAddingSunday(false);
@@ -238,7 +241,9 @@ export function RollCallSection() {
           <div className="space-y-4">
             <div>
               <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">Sunday columns</p>
+                <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">
+                  Sunday columns
+                </p>
                 {loadingSundays ? <Loader2 className="size-4 animate-spin text-teal-100" /> : null}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -255,39 +260,63 @@ export function RollCallSection() {
                     disabled={checkingIn}
                     onClick={() => setSelectedCol(sunday.col)}
                   >
-                    <span className="block text-[10px] uppercase tracking-[0.28em]">{sunday.date}</span>
+                    <span className="block text-[10px] uppercase tracking-[0.28em]">
+                      {sunday.date}
+                    </span>
                     <span className="mt-1 block font-mono text-lg font-bold">{sunday.total}</span>
                   </button>
                 ))}
+                <Popover open={addSundayOpen} onOpenChange={setAddSundayOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-white/10 bg-white/[0.025] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-teal-100/85 transition hover:border-teal-100/35 hover:bg-teal-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={addingSunday}
+                    >
+                      <UserPlus className="size-3.5" />+ Add Sunday
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    sideOffset={8}
+                    className="w-80 rounded-none border-white/15 bg-[#050509]/95 p-3 text-white shadow-[0_0_24px_rgba(45,212,191,0.12)] backdrop-blur-xl"
+                  >
+                    <form className="grid gap-3" onSubmit={handleAddSunday}>
+                      <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">
+                        Add Sunday
+                      </p>
+                      <input
+                        className={CONTROL}
+                        value={newSundayDate}
+                        onChange={(event) => setNewSundayDate(event.target.value)}
+                        placeholder="6-14"
+                        disabled={addingSunday}
+                        aria-label="Sunday date"
+                      />
+                      <button
+                        type="submit"
+                        className={ACTION_BUTTON}
+                        disabled={addingSunday || newSundayDate.trim().length === 0}
+                      >
+                        {addingSunday ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <UserPlus className="size-4" />
+                        )}
+                        Add
+                      </button>
+                    </form>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
-
-            <form className="grid gap-2 border border-white/10 bg-white/[0.03] p-3" onSubmit={handleAddSunday}>
-              <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">Add Sunday</p>
-              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                <input
-                  className={CONTROL}
-                  value={newSundayDate}
-                  onChange={(event) => setNewSundayDate(event.target.value)}
-                  placeholder="6-14"
-                  disabled={addingSunday}
-                  aria-label="Sunday date"
-                />
-                <button
-                  type="submit"
-                  className={ACTION_BUTTON}
-                  disabled={addingSunday || newSundayDate.trim().length === 0}
-                >
-                  {addingSunday ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-                  Add
-                </button>
-              </div>
-            </form>
           </div>
 
           <div className="space-y-3">
             <label className="block">
-              <span className="mb-2 block text-[10px] uppercase tracking-[0.32em] text-white/35">Roster search</span>
+              <span className="mb-2 block text-[10px] uppercase tracking-[0.32em] text-white/35">
+                Roster search
+              </span>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/30" />
                 <input
@@ -321,7 +350,9 @@ export function RollCallSection() {
                           <span className="block truncate text-sm font-bold uppercase tracking-[0.06em] text-white">
                             {person.name}
                           </span>
-                          <span className="mt-1 block font-mono text-[10px] text-white/35">Row {person.row}</span>
+                          <span className="mt-1 block font-mono text-[10px] text-white/35">
+                            Row {person.row}
+                          </span>
                         </span>
                         <PersonTypeChip type={person.type} />
                       </button>
@@ -331,7 +362,9 @@ export function RollCallSection() {
               ) : (
                 <div className="grid h-[244px] place-items-center px-6 text-center">
                   <p className="text-xs uppercase leading-5 tracking-[0.24em] text-white/35">
-                    {query.trim().length >= 2 ? "No roster matches" : "Search the live Sunday roster"}
+                    {query.trim().length >= 2
+                      ? "No roster matches"
+                      : "Search the live Sunday roster"}
                   </p>
                 </div>
               )}
@@ -340,15 +373,22 @@ export function RollCallSection() {
 
           <div className="flex flex-col border border-white/10 bg-white/[0.03] p-3">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">Check-in party</p>
+              <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">
+                Check-in party
+              </p>
               <span className="font-mono text-lg font-bold text-white">{party.length}</span>
             </div>
 
             <div className="min-h-[184px] flex-1 space-y-2">
               {party.map((person) => (
-                <div key={person.row} className="flex items-center justify-between gap-3 border border-white/10 bg-black/45 p-3">
+                <div
+                  key={person.row}
+                  className="flex items-center justify-between gap-3 border border-white/10 bg-black/45 p-3"
+                >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold uppercase tracking-[0.06em] text-white">{person.name}</p>
+                    <p className="truncate text-sm font-bold uppercase tracking-[0.06em] text-white">
+                      {person.name}
+                    </p>
                     <p className="mt-1 font-mono text-[10px] text-white/35">Row {person.row}</p>
                   </div>
                   <button
@@ -370,7 +410,11 @@ export function RollCallSection() {
               disabled={checkingIn || party.length === 0 || !selectedCol}
               onClick={handleCheckIn}
             >
-              {checkingIn ? <Loader2 className="size-5 animate-spin" /> : <CheckCircle2 className="size-5" />}
+              {checkingIn ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-5" />
+              )}
               Check in
             </button>
           </div>

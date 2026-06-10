@@ -1,8 +1,20 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarPlus, CheckCircle2, Loader2, Plus, Search, Sparkles, UsersRound, X } from "lucide-react";
+import {
+  CalendarPlus,
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
+  Plus,
+  Search,
+  Sparkles,
+  UsersRound,
+  X,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   addEvent,
   checkInEvent,
@@ -57,9 +69,13 @@ export function EventLogSection() {
   const [eventDate, setEventDate] = useState("");
   const [eventName, setEventName] = useState("");
   const [addingEvent, setAddingEvent] = useState(false);
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [smartRosterOpen, setSmartRosterOpen] = useState(false);
   const [smartKeyword, setSmartKeyword] = useState("");
   const [smartRoster, setSmartRoster] = useState<SmartRosterPerson[]>([]);
-  const [smartMatchedEvents, setSmartMatchedEvents] = useState<Array<{ name: string; date: string }>>([]);
+  const [smartMatchedEvents, setSmartMatchedEvents] = useState<
+    Array<{ name: string; date: string }>
+  >([]);
   const [buildingSmartRoster, setBuildingSmartRoster] = useState(false);
   const [smartRosterLoaded, setSmartRosterLoaded] = useState(false);
   const [query, setQuery] = useState("");
@@ -187,6 +203,7 @@ export function EventLogSection() {
         setEventDate("");
         setEventName("");
         await refreshEvents(res.col);
+        setAddEventOpen(false);
       }
     } finally {
       setAddingEvent(false);
@@ -281,7 +298,9 @@ export function EventLogSection() {
           <div className="space-y-4">
             <div>
               <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">Recent events</p>
+                <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">
+                  Recent events
+                </p>
                 {loadingEvents ? <Loader2 className="size-4 animate-spin text-violet-100" /> : null}
               </div>
               <div className="flex flex-wrap gap-2">
@@ -298,174 +317,244 @@ export function EventLogSection() {
                     disabled={checkingIn}
                     onClick={() => setSelectedCol(event.col)}
                   >
-                    <span className="block truncate text-[10px] uppercase tracking-[0.28em]">{event.name}</span>
+                    <span className="block truncate text-[10px] uppercase tracking-[0.28em]">
+                      {event.name}
+                    </span>
                     <span className="mt-1 block font-mono text-sm font-bold">
                       {event.date || "No date"} / {event.total}
                     </span>
                   </button>
                 ))}
+                <Popover open={addEventOpen} onOpenChange={setAddEventOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-[44px] items-center justify-center gap-2 border border-white/10 bg-white/[0.025] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.24em] text-violet-100/85 transition hover:border-violet-100/35 hover:bg-violet-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={addingEvent}
+                    >
+                      <CalendarPlus className="size-3.5" />+ New Event
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="start"
+                    sideOffset={8}
+                    className="w-80 rounded-none border-white/15 bg-[#050509]/95 p-3 text-white shadow-[0_0_24px_rgba(168,85,247,0.12)] backdrop-blur-xl"
+                  >
+                    <form className="grid gap-3" onSubmit={handleAddEvent}>
+                      <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">
+                        Add event
+                      </p>
+                      <input
+                        className={CONTROL}
+                        value={eventDate}
+                        onChange={(event) => setEventDate(event.target.value)}
+                        placeholder="6-14"
+                        disabled={addingEvent}
+                        aria-label="Event date"
+                      />
+                      <input
+                        className={CONTROL}
+                        value={eventName}
+                        onChange={(event) => setEventName(event.target.value)}
+                        placeholder="Event name"
+                        disabled={addingEvent}
+                        aria-label="Event name"
+                      />
+                      <button
+                        type="submit"
+                        className={ACTION_BUTTON}
+                        disabled={
+                          addingEvent ||
+                          eventDate.trim().length === 0 ||
+                          eventName.trim().length === 0
+                        }
+                      >
+                        {addingEvent ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <CalendarPlus className="size-4" />
+                        )}
+                        Add
+                      </button>
+                    </form>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
-
-            <form className="grid gap-2 border border-white/10 bg-white/[0.03] p-3" onSubmit={handleAddEvent}>
-              <p className="text-[10px] uppercase tracking-[0.32em] text-white/35">Add event</p>
-              <div className="grid gap-2">
-                <input
-                  className={CONTROL}
-                  value={eventDate}
-                  onChange={(event) => setEventDate(event.target.value)}
-                  placeholder="6-14"
-                  disabled={addingEvent}
-                  aria-label="Event date"
-                />
-                <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <input
-                    className={CONTROL}
-                    value={eventName}
-                    onChange={(event) => setEventName(event.target.value)}
-                    placeholder="Event name"
-                    disabled={addingEvent}
-                    aria-label="Event name"
-                  />
-                  <button
-                    type="submit"
-                    className={ACTION_BUTTON}
-                    disabled={addingEvent || eventDate.trim().length === 0 || eventName.trim().length === 0}
-                  >
-                    {addingEvent ? <Loader2 className="size-4 animate-spin" /> : <CalendarPlus className="size-4" />}
-                    Add
-                  </button>
-                </div>
-              </div>
-            </form>
           </div>
 
           <div className="space-y-3">
-            <form
-              className="border border-amber-200/15 bg-white/[0.03] p-3 shadow-[0_0_18px_rgba(245,158,11,0.06)]"
-              onSubmit={handleBuildSmartRoster}
+            <Collapsible
+              open={smartRosterOpen}
+              onOpenChange={setSmartRosterOpen}
+              className="border border-amber-200/15 bg-white/[0.03] shadow-[0_0_18px_rgba(245,158,11,0.06)]"
             >
-              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-[0.32em] text-amber-100/80">Smart roster</p>
-                  {smartMatchedSummary ? (
-                    <p
-                      className="mt-2 truncate text-[11px] uppercase tracking-[0.18em] text-white/45"
-                      title={smartMatchedSummary}
-                    >
-                      {smartMatchedSummary}
-                    </p>
-                  ) : null}
-                </div>
-                {smartRoster.length > 0 ? (
-                  <button
-                    type="button"
-                    className="inline-flex h-9 shrink-0 items-center justify-center gap-2 border border-amber-200/35 bg-amber-300/10 px-3 text-[9px] font-bold uppercase tracking-[0.24em] text-amber-100 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={checkingIn || smartUnselectedCount === 0}
-                    onClick={() => addPeopleToParty(smartRoster)}
-                  >
-                    <UsersRound className="size-3.5" />
-                    Add all {smartRoster.length}
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-                <div className="relative">
-                  <Sparkles className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-100/45" />
-                  <input
-                    className={cn(CONTROL, "pl-10 focus:border-amber-100/45")}
-                    value={smartKeyword}
-                    onChange={(event) => setSmartKeyword(event.target.value)}
-                    placeholder="youth, bon-odori, prayer breakfast"
-                    disabled={buildingSmartRoster || checkingIn}
-                    aria-label="Smart roster keyword"
-                  />
-                </div>
+              <CollapsibleTrigger asChild>
                 <button
-                  type="submit"
-                  className={cn(ACTION_BUTTON, "border-amber-200/35 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15")}
-                  disabled={buildingSmartRoster || checkingIn || smartKeyword.trim().length === 0}
+                  type="button"
+                  className="flex min-h-12 w-full items-center justify-between gap-3 px-3 py-3 text-left transition hover:bg-amber-300/10"
                 >
-                  {buildingSmartRoster ? <Loader2 className="size-4 animate-spin" /> : <Search className="size-4" />}
-                  Build roster
+                  <span className="min-w-0 text-[10px] font-bold tracking-[0.24em] text-amber-100/85">
+                    <span className="uppercase">Smart roster</span>
+                    <span className="ml-2 text-white/40">
+                      &mdash; recurring event? build the list automatically
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 shrink-0 text-amber-100/70 transition-transform",
+                      smartRosterOpen && "rotate-180",
+                    )}
+                  />
                 </button>
-              </div>
-
-              <div className="mt-3 border border-white/10 bg-black/45">
-                {buildingSmartRoster ? (
-                  <div className="grid h-[168px] place-items-center text-amber-100">
-                    <Loader2 className="size-6 animate-spin" />
-                  </div>
-                ) : smartRoster.length > 0 ? (
-                  <div className="max-h-[360px] divide-y divide-white/10 overflow-y-auto">
-                    {smartRoster.map((person) => {
-                      const alreadySelected = partyRows.has(person.row);
-                      const intensity = maxSmartTimes > 0 ? Math.min(1, person.timesAttended / maxSmartTimes) : 0;
-                      const amberAlpha = 0.05 + intensity * 0.13;
-                      const glowAlpha = 0.06 + intensity * 0.2;
-
-                      return (
-                        <div
-                          key={person.row}
-                          className="flex flex-col gap-3 px-3 py-3 transition hover:bg-white/[0.045] sm:flex-row sm:items-center sm:justify-between"
-                          style={{
-                            backgroundColor: `rgba(245, 158, 11, ${amberAlpha})`,
-                            boxShadow: `inset 0 0 ${8 + intensity * 18}px rgba(245, 158, 11, ${glowAlpha})`,
-                          }}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="border-t border-white/10">
+                <form className="p-3" onSubmit={handleBuildSmartRoster}>
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[10px] uppercase tracking-[0.32em] text-amber-100/80">
+                        Smart roster
+                      </p>
+                      {smartMatchedSummary ? (
+                        <p
+                          className="mt-2 truncate text-[11px] uppercase tracking-[0.18em] text-white/45"
+                          title={smartMatchedSummary}
                         >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold uppercase tracking-[0.06em] text-white">{person.name}</p>
-                            <p className="mt-1 font-mono text-[10px] text-white/35">Row {person.row}</p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                            <PersonTypeChip type={person.type} />
-                            <span
-                              className="border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-amber-50"
+                          {smartMatchedSummary}
+                        </p>
+                      ) : null}
+                    </div>
+                    {smartRoster.length > 0 ? (
+                      <button
+                        type="button"
+                        className="inline-flex h-9 shrink-0 items-center justify-center gap-2 border border-amber-200/35 bg-amber-300/10 px-3 text-[9px] font-bold uppercase tracking-[0.24em] text-amber-100 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={checkingIn || smartUnselectedCount === 0}
+                        onClick={() => addPeopleToParty(smartRoster)}
+                      >
+                        <UsersRound className="size-3.5" />
+                        Add all {smartRoster.length}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="relative">
+                      <Sparkles className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-amber-100/45" />
+                      <input
+                        className={cn(CONTROL, "pl-10 focus:border-amber-100/45")}
+                        value={smartKeyword}
+                        onChange={(event) => setSmartKeyword(event.target.value)}
+                        placeholder="youth, bon-odori, prayer breakfast"
+                        disabled={buildingSmartRoster || checkingIn}
+                        aria-label="Smart roster keyword"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className={cn(
+                        ACTION_BUTTON,
+                        "border-amber-200/35 bg-amber-300/10 text-amber-100 hover:bg-amber-300/15",
+                      )}
+                      disabled={
+                        buildingSmartRoster || checkingIn || smartKeyword.trim().length === 0
+                      }
+                    >
+                      {buildingSmartRoster ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Search className="size-4" />
+                      )}
+                      Build roster
+                    </button>
+                  </div>
+
+                  <div className="mt-3 border border-white/10 bg-black/45">
+                    {buildingSmartRoster ? (
+                      <div className="grid h-[168px] place-items-center text-amber-100">
+                        <Loader2 className="size-6 animate-spin" />
+                      </div>
+                    ) : smartRoster.length > 0 ? (
+                      <div className="max-h-[360px] divide-y divide-white/10 overflow-y-auto">
+                        {smartRoster.map((person) => {
+                          const alreadySelected = partyRows.has(person.row);
+                          const intensity =
+                            maxSmartTimes > 0
+                              ? Math.min(1, person.timesAttended / maxSmartTimes)
+                              : 0;
+                          const amberAlpha = 0.05 + intensity * 0.13;
+                          const glowAlpha = 0.06 + intensity * 0.2;
+
+                          return (
+                            <div
+                              key={person.row}
+                              className="flex flex-col gap-3 px-3 py-3 transition hover:bg-white/[0.045] sm:flex-row sm:items-center sm:justify-between"
                               style={{
-                                borderColor: `rgba(253, 230, 138, ${0.22 + intensity * 0.36})`,
-                                backgroundColor: `rgba(251, 191, 36, ${0.1 + intensity * 0.18})`,
+                                backgroundColor: `rgba(245, 158, 11, ${amberAlpha})`,
+                                boxShadow: `inset 0 0 ${8 + intensity * 18}px rgba(245, 158, 11, ${glowAlpha})`,
                               }}
                             >
-                              {person.timesAttended}x at this event
-                            </span>
-                            <button
-                              type="button"
-                              className="inline-flex h-8 items-center justify-center gap-2 border border-white/10 bg-white/[0.04] px-3 text-[9px] font-bold uppercase tracking-[0.22em] text-white/62 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-                              disabled={alreadySelected || checkingIn}
-                              onClick={() => addToParty(person)}
-                              aria-label={`Add ${person.name}`}
-                            >
-                              {alreadySelected ? <CheckCircle2 className="size-3.5" /> : <Plus className="size-3.5" />}
-                              {alreadySelected ? "Added" : "Add"}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-bold uppercase tracking-[0.06em] text-white">
+                                  {person.name}
+                                </p>
+                                <p className="mt-1 font-mono text-[10px] text-white/35">
+                                  Row {person.row}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                <PersonTypeChip type={person.type} />
+                                <span
+                                  className="border px-2 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-amber-50"
+                                  style={{
+                                    borderColor: `rgba(253, 230, 138, ${0.22 + intensity * 0.36})`,
+                                    backgroundColor: `rgba(251, 191, 36, ${0.1 + intensity * 0.18})`,
+                                  }}
+                                >
+                                  {person.timesAttended}x at this event
+                                </span>
+                                <button
+                                  type="button"
+                                  className="inline-flex h-8 items-center justify-center gap-2 border border-white/10 bg-white/[0.04] px-3 text-[9px] font-bold uppercase tracking-[0.22em] text-white/62 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                                  disabled={alreadySelected || checkingIn}
+                                  onClick={() => addToParty(person)}
+                                  aria-label={`Add ${person.name}`}
+                                >
+                                  {alreadySelected ? (
+                                    <CheckCircle2 className="size-3.5" />
+                                  ) : (
+                                    <Plus className="size-3.5" />
+                                  )}
+                                  {alreadySelected ? "Added" : "Add"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="grid h-[168px] place-items-center px-6 text-center">
+                        <p className="text-xs uppercase leading-5 tracking-[0.24em] text-white/35">
+                          {smartRosterLoaded ? (
+                            smartMatchedEvents.length > 0 ? (
+                              "No attendees found in matching past events"
+                            ) : (
+                              <>No past events match &mdash; try a shorter keyword</>
+                            )
+                          ) : (
+                            "Smart roster standby"
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="grid h-[168px] place-items-center px-6 text-center">
-                    <p className="text-xs uppercase leading-5 tracking-[0.24em] text-white/35">
-                      {smartRosterLoaded ? (
-                        smartMatchedEvents.length > 0 ? (
-                          "No attendees found in matching past events"
-                        ) : (
-                          <>
-                            No past events match &mdash; try a shorter keyword
-                          </>
-                        )
-                      ) : (
-                        "Smart roster standby"
-                      )}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </form>
+                </form>
+              </CollapsibleContent>
+            </Collapsible>
 
             <label className="block">
-              <span className="mb-2 block text-[10px] uppercase tracking-[0.32em] text-white/35">Event roster search</span>
+              <span className="mb-2 block text-[10px] uppercase tracking-[0.32em] text-white/35">
+                Event roster search
+              </span>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/30" />
                 <input
@@ -499,7 +588,9 @@ export function EventLogSection() {
                           <span className="block truncate text-sm font-bold uppercase tracking-[0.06em] text-white">
                             {person.name}
                           </span>
-                          <span className="mt-1 block font-mono text-[10px] text-white/35">Row {person.row}</span>
+                          <span className="mt-1 block font-mono text-[10px] text-white/35">
+                            Row {person.row}
+                          </span>
                         </span>
                         <PersonTypeChip type={person.type} />
                       </button>
@@ -509,7 +600,9 @@ export function EventLogSection() {
               ) : (
                 <div className="grid h-[244px] place-items-center px-6 text-center">
                   <p className="text-xs uppercase leading-5 tracking-[0.24em] text-white/35">
-                    {query.trim().length >= 2 ? "No roster matches" : "Search the live event roster"}
+                    {query.trim().length >= 2
+                      ? "No roster matches"
+                      : "Search the live event roster"}
                   </p>
                 </div>
               )}
@@ -524,9 +617,14 @@ export function EventLogSection() {
 
             <div className="min-h-[184px] flex-1 space-y-2">
               {party.map((person) => (
-                <div key={person.row} className="flex items-center justify-between gap-3 border border-white/10 bg-black/45 p-3">
+                <div
+                  key={person.row}
+                  className="flex items-center justify-between gap-3 border border-white/10 bg-black/45 p-3"
+                >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold uppercase tracking-[0.06em] text-white">{person.name}</p>
+                    <p className="truncate text-sm font-bold uppercase tracking-[0.06em] text-white">
+                      {person.name}
+                    </p>
                     <p className="mt-1 font-mono text-[10px] text-white/35">Row {person.row}</p>
                   </div>
                   <button
@@ -548,7 +646,11 @@ export function EventLogSection() {
               disabled={checkingIn || party.length === 0 || !selectedCol}
               onClick={handleCheckIn}
             >
-              {checkingIn ? <Loader2 className="size-5 animate-spin" /> : <CheckCircle2 className="size-5" />}
+              {checkingIn ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-5" />
+              )}
               Check in
             </button>
           </div>
