@@ -17,6 +17,7 @@ import {
 import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md";
@@ -67,15 +68,14 @@ function CountBadge({ value, loading }: { value: number; loading: boolean }) {
   );
 }
 
-function ActivityChip({
-  value,
-  className,
-}: {
-  value: string;
-  className?: string;
-}) {
+function ActivityChip({ value, className }: { value: string; className?: string }) {
   return (
-    <span className={cn("border border-white/10 bg-white/[0.035] px-2 py-1 font-mono text-xs font-bold text-white/62", className)}>
+    <span
+      className={cn(
+        "border border-white/10 bg-white/[0.035] px-2 py-1 font-mono text-xs font-bold text-white/62",
+        className,
+      )}
+    >
       {value || "Activity unknown"}
     </span>
   );
@@ -83,6 +83,7 @@ function ActivityChip({
 
 function QueueButton({
   label,
+  confirmMessage,
   pending,
   queued,
   onClick,
@@ -91,6 +92,7 @@ function QueueButton({
   accentBg,
 }: {
   label: string;
+  confirmMessage: string;
   pending: boolean;
   queued: boolean;
   onClick: () => void;
@@ -98,27 +100,62 @@ function QueueButton({
   accentBorder: string;
   accentBg: string;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <button
-      type="button"
-      className={cn(
-        "flex h-11 w-full items-center justify-center gap-2 border px-3 text-[10px] font-bold uppercase tracking-[0.22em] transition disabled:cursor-not-allowed sm:w-auto sm:min-w-44",
-        queued
-          ? "border-white/10 bg-white/[0.025] text-white/32"
-          : cn(accentBorder, accentBg, accentText, "hover:bg-white/[0.08] disabled:opacity-45"),
-      )}
-      disabled={pending || queued}
-      onClick={onClick}
-    >
-      {pending ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : queued ? (
-        <Check className="size-4" />
-      ) : (
-        <Send className="size-4" />
-      )}
-      {queued ? "QUEUED ✓" : label}
-    </button>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex h-11 w-full items-center justify-center gap-2 border px-3 text-[10px] font-bold uppercase tracking-[0.22em] transition disabled:cursor-not-allowed sm:w-auto sm:min-w-44 cursor-pointer",
+            queued
+              ? "border-white/10 bg-white/[0.025] text-white/32"
+              : cn(accentBorder, accentBg, accentText, "hover:bg-white/[0.08] disabled:opacity-45"),
+          )}
+          disabled={pending || queued}
+        >
+          {pending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : queued ? (
+            <Check className="size-4" />
+          ) : (
+            <Send className="size-4" />
+          )}
+          {queued ? "QUEUED ✓" : label}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="border-white/15 bg-[#050509]/95 rounded-none p-4 w-72 text-white shadow-[0_0_12px_rgba(0,0,0,0.85)]">
+        <div className="space-y-4">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/60">Confirm action</p>
+          <p className="text-xs leading-relaxed text-white/90">{confirmMessage}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              className="flex-1 h-9 border border-white/10 bg-transparent hover:bg-white/[0.03] text-[10px] font-bold uppercase tracking-[0.2em] transition cursor-pointer text-white"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onClick();
+              }}
+              className={cn(
+                "flex-1 h-9 border text-[10px] font-bold uppercase tracking-[0.2em] transition cursor-pointer text-white",
+                accentBorder,
+                accentBg,
+                "hover:bg-white/[0.12]",
+              )}
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -126,7 +163,10 @@ function LoadingRows({ accentBorder, accentBg }: { accentBorder: string; accentB
   return (
     <div className="grid gap-3">
       {Array.from({ length: 3 }, (_, index) => (
-        <div key={index} className="grid gap-3 border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-[1fr_176px] sm:items-center">
+        <div
+          key={index}
+          className="grid gap-3 border border-white/10 bg-white/[0.03] p-4 sm:grid-cols-[1fr_176px] sm:items-center"
+        >
           <div className="space-y-3">
             <div className="h-5 w-3/5 animate-pulse bg-white/12" />
             <div className="h-3 w-4/5 animate-pulse bg-white/8" />
@@ -209,26 +249,36 @@ function AliasRow({
     <article className="grid gap-4 border border-white/10 bg-white/[0.035] p-4 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_176px] lg:items-center">
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">{candidate.guest}</h4>
+          <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">
+            {candidate.guest}
+          </h4>
           <span className="border border-amber-200/35 bg-amber-300/10 px-2 py-1 font-mono text-xs font-bold text-amber-100">
             {visitsChip(candidate.guestVisits)}
           </span>
         </div>
-        <p className="text-[10px] uppercase tracking-[0.24em] text-white/30">Attendance guest record</p>
+        <p className="text-[10px] uppercase tracking-[0.24em] text-white/30">
+          Attendance guest record
+        </p>
       </div>
 
       <ArrowRight className="hidden size-5 text-cyan-100/70 lg:block" />
 
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">{candidate.member}</h4>
-          <ActivityChip value={candidate.memberActivity} className="border-cyan-200/30 bg-cyan-300/10 text-cyan-100" />
+          <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">
+            {candidate.member}
+          </h4>
+          <ActivityChip
+            value={candidate.memberActivity}
+            className="border-cyan-200/30 bg-cyan-300/10 text-cyan-100"
+          />
         </div>
         <p className="text-xs leading-5 text-white/42">{candidate.reason}</p>
       </div>
 
       <QueueButton
         label="LINK AS ALIAS"
+        confirmMessage={`Queue alias link: ${candidate.guest} → ${candidate.member}`}
         pending={pending}
         queued={queued}
         onClick={() => onQueue(request)}
@@ -278,6 +328,7 @@ function DuplicateRow({
 
       <QueueButton
         label="QUEUE MERGE"
+        confirmMessage={`Queue merge: ${duplicate.a} ↔ ${duplicate.b}`}
         pending={pending}
         queued={queued}
         onClick={() => onQueue(request)}
@@ -311,16 +362,21 @@ function MissingRow({
     <article className="grid gap-4 border border-white/10 bg-white/[0.035] p-4 sm:grid-cols-[minmax(0,1fr)_176px] sm:items-center">
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center gap-2">
-          <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">{regular.name}</h4>
+          <h4 className="min-w-0 text-xl font-bold uppercase leading-tight text-white">
+            {regular.name}
+          </h4>
           <span className="border border-emerald-200/35 bg-emerald-300/10 px-2 py-1 font-mono text-xs font-bold text-emerald-100">
             {visitsChip(regular.visits)}
           </span>
         </div>
-        <p className="text-xs leading-5 text-white/42">No Directory record matched this regular attender.</p>
+        <p className="text-xs leading-5 text-white/42">
+          No Directory record matched this regular attender.
+        </p>
       </div>
 
       <QueueButton
         label="ADD TO DIRECTORY"
+        confirmMessage={`Queue add to directory: ${regular.name}`}
         pending={pending}
         queued={queued}
         onClick={() => onQueue(request)}
@@ -336,6 +392,9 @@ export function DataPatrolSection() {
   const [cleanup, setCleanup] = useState<DataCleanup | null>(null);
   const [pendingKeys, setPendingKeys] = useState<Set<string>>(() => new Set());
   const [queuedKeys, setQueuedKeys] = useState<Set<string>>(() => new Set());
+  const [activePatrolTab, setActivePatrolTab] = useState<
+    "probablyMembers" | "duplicates" | "missing"
+  >("probablyMembers");
   const data = cleanup ?? EMPTY_CLEANUP;
   const loading = cleanup === null;
 
@@ -345,7 +404,11 @@ export function DataPatrolSection() {
       directoryDuplicates: data.directoryDuplicates.length,
       missingFromDirectory: data.missingFromDirectory.length,
     }),
-    [data.aliasCandidates.length, data.directoryDuplicates.length, data.missingFromDirectory.length],
+    [
+      data.aliasCandidates.length,
+      data.directoryDuplicates.length,
+      data.missingFromDirectory.length,
+    ],
   );
 
   useEffect(() => {
@@ -442,7 +505,8 @@ export function DataPatrolSection() {
               CLEAN DATA IS PASTORAL CARE
             </h2>
             <p className="mt-5 max-w-3xl text-sm uppercase leading-6 tracking-[0.22em] text-white/48">
-              Wrong names hide real growth: guests counted as strangers may be long-time members under another name.
+              Wrong names hide real growth: guests counted as strangers may be long-time members
+              under another name.
             </p>
             <a
               href={ACTION_QUEUE_URL}
@@ -450,7 +514,9 @@ export function DataPatrolSection() {
               rel="noreferrer"
               className="mt-5 inline-flex max-w-full items-center gap-3 border border-white/10 bg-white/[0.035] px-3 py-2 text-[10px] font-bold uppercase leading-5 tracking-[0.2em] text-white/48 transition hover:border-cyan-100/35 hover:text-white"
             >
-              <span>Fixes queue for the office — the Directory is the identity source of truth</span>
+              <span>
+                Fixes queue for the office — the Directory is the identity source of truth
+              </span>
               <ExternalLink className="size-4 shrink-0 text-cyan-100" />
             </a>
           </div>
@@ -469,111 +535,156 @@ export function DataPatrolSection() {
         </div>
       </motion.div>
 
-      <div className="mt-5 grid gap-5">
-        <PatrolSection
-          title="PROBABLY ALREADY MEMBERS"
-          index="08A"
-          count={counts.aliasCandidates}
-          loading={loading}
-          accentText="text-cyan-100"
-          accentBorder="border-cyan-200/35"
-          accentBg="bg-cyan-300/10"
-          glow="rgba(45,212,191,0.16)"
-        >
-          {loading ? (
-            <LoadingRows accentBorder="border-cyan-200/35" accentBg="bg-cyan-300/10" />
-          ) : data.aliasCandidates.length ? (
-            data.aliasCandidates.map((candidate) => {
-              const key = requestKey({
-                fixType: "link-alias",
-                person: candidate.guest,
-                detail: candidate.member,
-                reason: candidate.reason,
-              });
-              return (
-                <AliasRow
-                  key={key}
-                  candidate={candidate}
-                  pending={pendingKeys.has(key)}
-                  queued={queuedKeys.has(key)}
-                  onQueue={handleQueue}
-                />
-              );
-            })
-          ) : (
-            <EmptyState />
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setActivePatrolTab("probablyMembers")}
+          className={cn(
+            "rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] transition cursor-pointer",
+            activePatrolTab === "probablyMembers"
+              ? "border-cyan-400 bg-cyan-500/10 text-cyan-100 shadow-[0_0_12px_rgba(45,212,191,0.2)]"
+              : "border-white/10 bg-black/40 text-white/50 hover:bg-white/[0.04] hover:text-white",
           )}
-        </PatrolSection>
+        >
+          Probably Members {loading ? "..." : counts.aliasCandidates}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActivePatrolTab("duplicates")}
+          className={cn(
+            "rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] transition cursor-pointer",
+            activePatrolTab === "duplicates"
+              ? "border-violet-400 bg-violet-500/10 text-violet-100 shadow-[0_0_12px_rgba(168,85,247,0.2)]"
+              : "border-white/10 bg-black/40 text-white/50 hover:bg-white/[0.04] hover:text-white",
+          )}
+        >
+          Duplicates {loading ? "..." : counts.directoryDuplicates}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActivePatrolTab("missing")}
+          className={cn(
+            "rounded-full border px-4 py-2 text-[10px] font-bold uppercase tracking-[0.22em] transition cursor-pointer",
+            activePatrolTab === "missing"
+              ? "border-emerald-400 bg-emerald-500/10 text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+              : "border-white/10 bg-black/40 text-white/50 hover:bg-white/[0.04] hover:text-white",
+          )}
+        >
+          Missing {loading ? "..." : counts.missingFromDirectory}
+        </button>
+      </div>
 
-        <PatrolSection
-          title="POSSIBLE DUPLICATE RECORDS"
-          index="08B"
-          count={counts.directoryDuplicates}
-          loading={loading}
-          accentText="text-violet-100"
-          accentBorder="border-violet-200/35"
-          accentBg="bg-violet-300/10"
-          glow="rgba(168,85,247,0.16)"
-        >
-          {loading ? (
-            <LoadingRows accentBorder="border-violet-200/35" accentBg="bg-violet-300/10" />
-          ) : data.directoryDuplicates.length ? (
-            data.directoryDuplicates.map((duplicate) => {
-              const key = requestKey({
-                fixType: "merge-duplicates",
-                person: duplicate.a,
-                detail: duplicate.b,
-                reason: "Same family name + birth date",
-              });
-              return (
-                <DuplicateRow
-                  key={key}
-                  duplicate={duplicate}
-                  pending={pendingKeys.has(key)}
-                  queued={queuedKeys.has(key)}
-                  onQueue={handleQueue}
-                />
-              );
-            })
-          ) : (
-            <EmptyState />
-          )}
-        </PatrolSection>
+      <div className="mt-5">
+        {activePatrolTab === "probablyMembers" && (
+          <PatrolSection
+            title="PROBABLY ALREADY MEMBERS"
+            index="08A"
+            count={counts.aliasCandidates}
+            loading={loading}
+            accentText="text-cyan-100"
+            accentBorder="border-cyan-200/35"
+            accentBg="bg-cyan-300/10"
+            glow="rgba(45,212,191,0.16)"
+          >
+            {loading ? (
+              <LoadingRows accentBorder="border-cyan-200/35" accentBg="bg-cyan-300/10" />
+            ) : data.aliasCandidates.length ? (
+              data.aliasCandidates.map((candidate) => {
+                const key = requestKey({
+                  fixType: "link-alias",
+                  person: candidate.guest,
+                  detail: candidate.member,
+                  reason: candidate.reason,
+                });
+                return (
+                  <AliasRow
+                    key={key}
+                    candidate={candidate}
+                    pending={pendingKeys.has(key)}
+                    queued={queuedKeys.has(key)}
+                    onQueue={handleQueue}
+                  />
+                );
+              })
+            ) : (
+              <EmptyState />
+            )}
+          </PatrolSection>
+        )}
 
-        <PatrolSection
-          title="REGULARS MISSING FROM DIRECTORY"
-          index="08C"
-          count={counts.missingFromDirectory}
-          loading={loading}
-          accentText="text-emerald-100"
-          accentBorder="border-emerald-200/35"
-          accentBg="bg-emerald-300/10"
-          glow="rgba(16,185,129,0.15)"
-        >
-          {loading ? (
-            <LoadingRows accentBorder="border-emerald-200/35" accentBg="bg-emerald-300/10" />
-          ) : data.missingFromDirectory.length ? (
-            data.missingFromDirectory.map((regular) => {
-              const key = requestKey({
-                fixType: "add-to-directory",
-                person: regular.name,
-                detail: "",
-                reason: `${regular.visits}x in 3 months but no Directory record`,
-              });
-              return (
-                <MissingRow
-                  key={key}
-                  regular={regular}
-                  pending={pendingKeys.has(key)}
-                  queued={queuedKeys.has(key)}
-                  onQueue={handleQueue}
-                />
-              );
-            })
-          ) : (
-            <EmptyState />
-          )}
-        </PatrolSection>
+        {activePatrolTab === "duplicates" && (
+          <PatrolSection
+            title="POSSIBLE DUPLICATE RECORDS"
+            index="08B"
+            count={counts.directoryDuplicates}
+            loading={loading}
+            accentText="text-violet-100"
+            accentBorder="border-violet-200/35"
+            accentBg="bg-violet-300/10"
+            glow="rgba(168,85,247,0.16)"
+          >
+            {loading ? (
+              <LoadingRows accentBorder="border-violet-200/35" accentBg="bg-violet-300/10" />
+            ) : data.directoryDuplicates.length ? (
+              data.directoryDuplicates.map((duplicate) => {
+                const key = requestKey({
+                  fixType: "merge-duplicates",
+                  person: duplicate.a,
+                  detail: duplicate.b,
+                  reason: "Same family name + birth date",
+                });
+                return (
+                  <DuplicateRow
+                    key={key}
+                    duplicate={duplicate}
+                    pending={pendingKeys.has(key)}
+                    queued={queuedKeys.has(key)}
+                    onQueue={handleQueue}
+                  />
+                );
+              })
+            ) : (
+              <EmptyState />
+            )}
+          </PatrolSection>
+        )}
+
+        {activePatrolTab === "missing" && (
+          <PatrolSection
+            title="REGULARS MISSING FROM DIRECTORY"
+            index="08C"
+            count={counts.missingFromDirectory}
+            loading={loading}
+            accentText="text-emerald-100"
+            accentBorder="border-emerald-200/35"
+            accentBg="bg-emerald-300/10"
+            glow="rgba(16,185,129,0.15)"
+          >
+            {loading ? (
+              <LoadingRows accentBorder="border-emerald-200/35" accentBg="bg-emerald-300/10" />
+            ) : data.missingFromDirectory.length ? (
+              data.missingFromDirectory.map((regular) => {
+                const key = requestKey({
+                  fixType: "add-to-directory",
+                  person: regular.name,
+                  detail: "",
+                  reason: `${regular.visits}x in 3 months but no Directory record`,
+                });
+                return (
+                  <MissingRow
+                    key={key}
+                    regular={regular}
+                    pending={pendingKeys.has(key)}
+                    queued={queuedKeys.has(key)}
+                    onQueue={handleQueue}
+                  />
+                );
+              })
+            ) : (
+              <EmptyState />
+            )}
+          </PatrolSection>
+        )}
       </div>
     </section>
   );
