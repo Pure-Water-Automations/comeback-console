@@ -23,8 +23,10 @@ import npcWalkingImg from "@/assets/sprites/npc/npc_walking.png";
 import npcWaveImg from "@/assets/sprites/npc/npc_wave.png";
 import { ACTION_QUEUE_URL, addGuest } from "@/lib/njActions";
 import { GUEST_FUNNEL, MEMBERSHIP, RECENT_GUESTS } from "@/lib/njData";
+import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { celebrate } from "./ProgressHud";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md";
@@ -431,6 +433,7 @@ function CaptureGuestCard() {
       });
 
       if (res.ok) {
+        celebrate(award("guest_added"));
         toast.success(res.message, {
           description: "Action Queue entry ready for office review.",
         });

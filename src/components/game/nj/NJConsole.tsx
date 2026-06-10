@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Activity,
   CalendarDays,
@@ -7,6 +7,7 @@ import {
   MapPin,
   ScrollText,
   Sparkles,
+  Trophy,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -17,13 +18,16 @@ import adventurerSprite from "@/assets/sprites/adventurer/adventurer_victory.png
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TEAM_LABELS } from "@/lib/comebackData";
 import { NJ_PROFILE, SNAPSHOT_DATE } from "@/lib/njData";
+import { recordDailyVisit, recordTabVisit, unlockEgg } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { AttendancePanel } from "./AttendancePanel";
 import { BlessingPanel } from "./BlessingPanel";
 import { FinancePanel } from "./FinancePanel";
 import { OverviewPanel } from "./OverviewPanel";
 import { PeoplePanel } from "./PeoplePanel";
+import { celebrate, ProgressHud } from "./ProgressHud";
 import { QuestsPanel } from "./QuestsPanel";
+import { TrophyRoom } from "./TrophyRoom";
 
 export const NJ_TAB_IDS = [
   "overview",
@@ -32,6 +36,7 @@ export const NJ_TAB_IDS = [
   "people",
   "blessing",
   "quests",
+  "trophies",
 ] as const;
 
 export type NJTabId = (typeof NJ_TAB_IDS)[number];
@@ -64,6 +69,7 @@ const TABS = [
   { id: "people", label: "People", icon: Users },
   { id: "blessing", label: "Blessing", icon: Heart },
   { id: "quests", label: "Quests", icon: ScrollText },
+  { id: "trophies", label: "Trophies", icon: Trophy },
 ] satisfies TabConfig[];
 
 function makeStars(count: number, offset = 0): Star[] {
@@ -172,7 +178,13 @@ function HeaderChip({ children }: { children: ReactNode }) {
   );
 }
 
-function ConsoleHeader() {
+function ConsoleHeader({
+  mascotPulse,
+  onMascotClick,
+}: {
+  mascotPulse: number;
+  onMascotClick: () => void;
+}) {
   return (
     <motion.header
       className="relative overflow-hidden border border-white/10 bg-black/60 p-5 backdrop-blur-md md:p-7"
@@ -224,23 +236,64 @@ function ConsoleHeader() {
             ))}
           </div>
         </div>
-        <motion.div
-          className="mx-auto flex h-40 w-40 items-center justify-center border border-white/10 bg-black/50 shadow-[0_0_28px_rgba(45,212,191,0.18)] md:h-48 md:w-48"
+        <motion.button
+          type="button"
+          className="mx-auto flex h-40 w-40 cursor-pointer items-center justify-center border border-white/10 bg-black/50 shadow-[0_0_28px_rgba(45,212,191,0.18)] outline-none transition hover:border-teal-100/45 focus-visible:border-teal-100/70 md:h-48 md:w-48"
           animate={{ y: [0, -10, 0] }}
           transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
+          onClick={onMascotClick}
+          aria-label="Adventurer mascot"
         >
-          <img
-            src={adventurerSprite}
-            alt=""
-            className="h-32 w-32 object-contain [image-rendering:pixelated] drop-shadow-2xl md:h-40 md:w-40"
-          />
-        </motion.div>
+          <motion.div
+            key={mascotPulse}
+            initial={{ scale: 1 }}
+            animate={{ scale: [1, 1.12, 1] }}
+            transition={{ duration: 0.22, ease: EASE }}
+          >
+            <img
+              src={adventurerSprite}
+              alt=""
+              className="h-32 w-32 object-contain [image-rendering:pixelated] drop-shadow-2xl md:h-40 md:w-40"
+            />
+          </motion.div>
+        </motion.button>
       </div>
     </motion.header>
   );
 }
 
 export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
+  const mascotClicksRef = useRef(0);
+  const [mascotPulse, setMascotPulse] = useState(0);
+
+  const handleMascotClick = useCallback(() => {
+    setMascotPulse((current) => current + 1);
+    mascotClicksRef.current += 1;
+    if (mascotClicksRef.current === 7) {
+      celebrate(unlockEgg("egg-mascot"));
+    }
+  }, []);
+
+  const handleKonami = useCallback(() => {
+    celebrate(unlockEgg("egg-konami"));
+  }, []);
+
+  const handleNightOwl = useCallback(() => {
+    celebrate(unlockEgg("egg-night-owl"));
+  }, []);
+
+  const handleEarlyBird = useCallback(() => {
+    celebrate(unlockEgg("egg-early-bird"));
+  }, []);
+
+  useEffect(() => {
+    celebrate(recordDailyVisit());
+  }, []);
+
+  useEffect(() => {
+    celebrate(recordTabVisit(activeTab));
+  }, [activeTab]);
+
   return (
     <div className="relative min-h-screen overflow-hidden text-white">
       <Toaster
@@ -257,14 +310,15 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
       />
       <CosmicBackdrop />
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 md:px-8 lg:px-10">
-        <ConsoleHeader />
+        <ConsoleHeader mascotPulse={mascotPulse} onMascotClick={handleMascotClick} />
+        <ProgressHud onKonami={handleKonami} onEarlyBird={handleEarlyBird} onNightOwl={handleNightOwl} />
 
         <Tabs
           value={activeTab}
           onValueChange={(value) => onTabChange(value as NJTabId)}
           className="w-full"
         >
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-px border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md md:grid-cols-3 xl:grid-cols-6">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-px border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md md:grid-cols-4 xl:grid-cols-7">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -297,6 +351,9 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           </TabsContent>
           <TabsContent value="quests" className="mt-5">
             <QuestsPanel />
+          </TabsContent>
+          <TabsContent value="trophies" className="mt-5">
+            <TrophyRoom />
           </TabsContent>
         </Tabs>
       </div>

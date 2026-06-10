@@ -11,7 +11,9 @@ import {
   type EventColumn,
   type RosterPerson,
 } from "@/lib/njActions";
+import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
+import { celebrate } from "./ProgressHud";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md";
@@ -143,6 +145,7 @@ export function EventLogSection() {
       const res = await addEvent({ data: { date: eventDate, name: eventName } });
       toastResult(res.ok, res.message);
       if (res.ok) {
+        celebrate(award("event_created"));
         setEventDate("");
         setEventName("");
         await refreshEvents(res.col);
@@ -155,6 +158,7 @@ export function EventLogSection() {
   const handleCheckIn = async () => {
     if (checkingIn || !selectedCol || party.length === 0) return;
 
+    const checkedInCount = party.length;
     setCheckingIn(true);
     try {
       const res = await checkInEvent({
@@ -162,6 +166,7 @@ export function EventLogSection() {
       });
       toastResult(res.ok, res.message);
       if (res.ok) {
+        celebrate(award("event_checkin", checkedInCount));
         setParty([]);
         await refreshEvents(selectedCol);
       }

@@ -11,7 +11,9 @@ import {
   type RosterPerson,
   type SundayColumn,
 } from "@/lib/njActions";
+import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
+import { celebrate } from "./ProgressHud";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md";
@@ -172,6 +174,7 @@ export function RollCallSection() {
       const res = await addSundayColumn({ data: { date: newSundayDate } });
       toastResult(res.ok, res.message);
       if (res.ok) {
+        celebrate(award("sunday_added"));
         setNewSundayDate("");
         await refreshSundays(res.col);
       }
@@ -183,6 +186,7 @@ export function RollCallSection() {
   const handleCheckIn = async () => {
     if (checkingIn || !selectedCol || party.length === 0) return;
 
+    const checkedInCount = party.length;
     setCheckingIn(true);
     try {
       const res = await checkInSunday({
@@ -190,6 +194,7 @@ export function RollCallSection() {
       });
       toastResult(res.ok, res.message);
       if (res.ok) {
+        celebrate(award("checkin", checkedInCount));
         setParty([]);
         await refreshSundays(selectedCol);
       }

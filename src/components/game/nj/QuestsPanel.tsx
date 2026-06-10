@@ -27,7 +27,9 @@ import {
   type QuestLane,
 } from "@/lib/njActions";
 import { LES_QUESTS, type LesQuest } from "@/lib/njData";
+import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
+import { celebrate } from "./ProgressHud";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md";
@@ -399,6 +401,7 @@ function PostQuestCard() {
       });
 
       if (res.ok) {
+        celebrate(award("quest_posted"));
         toast.success(res.message, {
           description: "Action Queue entry ready for office review.",
         });
@@ -653,6 +656,7 @@ export function QuestsPanel() {
         });
 
         if (res.ok) {
+          celebrate(award("quest_completed"));
           toast.success(res.message, {
             description: "Action Queue entry ready for office review.",
           });
