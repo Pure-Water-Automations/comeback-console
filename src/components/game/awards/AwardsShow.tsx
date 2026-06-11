@@ -18,6 +18,7 @@ import {
   type OverviewSlide,
 } from "@/lib/weeklyAwards";
 import { cn } from "@/lib/utils";
+import { AsciiFireworks } from "./AsciiFireworks";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -1406,12 +1407,14 @@ export function AwardsShow() {
   const reducedMotion = useReducedMotion() ?? false;
   const totalSlides = deck.length;
   const rootRef = useRef<HTMLDivElement>(null);
+  const finaleMusicRef = useRef<HTMLAudioElement>(null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [fireworkCue, setFireworkCue] = useState<FireworkCue | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [muted, setMuted] = useState(false);
   const activeSlide = deck[slideIndex] ?? OPENING_SLIDE;
   const activeTone = activeSlide.tone;
+  const finaleMusicActive = isFinaleMoment(activeSlide);
 
   const toggleFullscreen = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -1483,6 +1486,44 @@ export function AwardsShow() {
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     handleFullscreenChange();
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    const audio = finaleMusicRef.current;
+    if (!audio) return;
+
+    audio.volume = 0.5;
+    audio.loop = true;
+    audio.muted = muted;
+
+    if (finaleMusicActive && !muted) {
+      void audio.play().catch(() => undefined);
+      return;
+    }
+
+    audio.pause();
+
+    if (!finaleMusicActive) {
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Some browsers reject seeking before metadata is available.
+      }
+    }
+  }, [finaleMusicActive, muted]);
+
+  useEffect(() => {
+    return () => {
+      const audio = finaleMusicRef.current;
+      if (!audio) return;
+
+      audio.pause();
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Decorative audio cleanup only.
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -1570,7 +1611,9 @@ export function AwardsShow() {
       onClick={handleStageClick}
     >
       <CosmicBackdrop tone={activeTone} />
+      <AsciiFireworks active={finaleMusicActive} />
       <FireworksLayer cue={fireworkCue} reducedMotion={reducedMotion} />
+      <audio ref={finaleMusicRef} src="/music/dawn_of_the_kingdom.mp3" loop preload="auto" className="hidden" />
       <ProgressRail
         slideIndex={slideIndex}
         deck={deck}
