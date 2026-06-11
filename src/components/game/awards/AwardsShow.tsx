@@ -242,7 +242,42 @@ function getAudioContext() {
   return awardsAudioContext;
 }
 
+// Real recorded sound effects (in public/sfx). Each play uses a fresh Audio
+// element so rapid/overlapping reveals don't cut each other off; active ones
+// are tracked so a mute / slide-exit can stop them mid-clap.
+const SFX = {
+  clap: "/sfx/clapping.ogg",
+  yay: "/sfx/yay.wav",
+  goodJob: "/sfx/good_job.ogg",
+} as const;
+const activeSfx = new Set<HTMLAudioElement>();
+
+function playSfx(url: string, volume = 0.8) {
+  if (typeof Audio === "undefined") return;
+  try {
+    const el = new Audio(url);
+    el.volume = volume;
+    activeSfx.add(el);
+    const cleanup = () => activeSfx.delete(el);
+    el.addEventListener("ended", cleanup, { once: true });
+    void el.play().catch(cleanup);
+  } catch {
+    /* autoplay blocked / unsupported — ignore */
+  }
+}
+
 function stopAwardsAudio() {
+  // Stop any in-flight recorded sfx (clap/yay/good-job).
+  for (const el of activeSfx) {
+    try {
+      el.pause();
+      el.currentTime = 0;
+    } catch {
+      /* ignore */
+    }
+  }
+  activeSfx.clear();
+
   if (!awardsAudioContext || awardsAudioContext.state === "closed") {
     awardsAudioContext = null;
     return;
@@ -395,18 +430,19 @@ function playCheerSwell(duration = 2.8, gainValue = 0.034) {
   }
 }
 
-function playCrowdCelebration(finale = false) {
+function playCrowdCelebration(finale = false, awardId?: string) {
+  // Real recorded crowd sfx replace the synthesized applause/cheer.
   if (finale) {
-    playApplause({ duration: 3.1, clapCount: 74, gainValue: 0.027 });
-    playCheerSwell(3.25, 0.04);
+    playSfx(SFX.yay, 0.85);
+    playSfx(SFX.clap, 0.7);
     return;
   }
 
-  playApplause({
-    duration: 1.65 + Math.random() * 0.45,
-    clapCount: 34 + Math.floor(Math.random() * 16),
-    gainValue: 0.023,
-  });
+  playSfx(SFX.clap, 0.7);
+  // A spoken "good job!" adds variety on the top-3 podiums + the David award.
+  if (awardId && ["treasury", "gatherers", "blessing", "david"].includes(awardId)) {
+    playSfx(SFX.goodJob, 0.8);
+  }
 }
 
 function playFanfare(finale = false) {
@@ -1452,7 +1488,7 @@ export function AwardsShow() {
         const finale = isFinaleMoment(nextSlide);
         playFanfare(finale);
         if (nextSlide.kind === "award" || nextSlide.kind === "finale") {
-          playCrowdCelebration(finale);
+          playCrowdCelebration(finale, nextSlide.kind === "award" ? nextSlide.award.id : undefined);
         }
       }
     },
