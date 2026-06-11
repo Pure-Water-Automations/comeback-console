@@ -17,6 +17,7 @@ import {
   type AwardWinner,
   type OverviewSlide,
 } from "@/lib/weeklyAwards";
+import { fetchLiveAwards } from "@/lib/regionalScoreboard";
 import { cn } from "@/lib/utils";
 import { AsciiFireworks } from "./AsciiFireworks";
 
@@ -1415,9 +1416,33 @@ function Controls({
 }
 
 export function AwardsShow() {
-  const awards = useMemo(() => buildWeeklyAwards(), []);
-  const overviewSlides = useMemo(() => buildRegionOverview(), []);
-  const meta = useMemo(() => weeklyAwardsMeta(awards), [awards]);
+  // Start from the static snapshot so the show is instant, then swap in LIVE
+  // data from the regional scoreboard once it loads (falls back to snapshot).
+  const [feed, setFeed] = useState(() => {
+    const built = buildWeeklyAwards();
+    return {
+      awards: built,
+      overview: buildRegionOverview(),
+      meta: weeklyAwardsMeta(built),
+      source: "snapshot" as "live" | "snapshot",
+      month: null as string | null,
+    };
+  });
+  useEffect(() => {
+    let cancelled = false;
+    void fetchLiveAwards()
+      .then((res) => {
+        if (cancelled || !res?.awards?.length) return;
+        setFeed({ awards: res.awards, overview: res.overview, meta: res.meta, source: res.source, month: res.month });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const awards = feed.awards;
+  const overviewSlides = feed.overview;
+  const meta = feed.meta;
   const deck = useMemo<DeckSlide[]>(() => {
     const slides: DeckSlide[] = [
       OPENING_SLIDE,
@@ -1647,6 +1672,11 @@ export function AwardsShow() {
     >
       <CosmicBackdrop tone={activeTone} />
       <AsciiFireworks active={fireworksActive} />
+      {feed.source === "live" ? (
+        <div className="pointer-events-none fixed left-1/2 top-3 z-[60] -translate-x-1/2 border border-emerald-300/40 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-200 backdrop-blur-md">
+          ● Live · {feed.month}
+        </div>
+      ) : null}
       <audio ref={finaleMusicRef} src="/music/dawn_of_the_kingdom.mp3" loop preload="auto" className="hidden" />
       <ProgressRail
         slideIndex={slideIndex}

@@ -345,8 +345,8 @@ export interface RankedCommunity extends Community {
 }
 
 /** Communities sorted by total points, with per-category point breakdown */
-export function rankedCommunities(): RankedCommunity[] {
-  return COMMUNITIES.map((c) => ({
+export function rankedCommunities(list: Community[] = COMMUNITIES): RankedCommunity[] {
+  return list.map((c) => ({
     ...c,
     points: totalPoints(c),
     financePoints: categoryPoints(c.finance),

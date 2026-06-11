@@ -62,15 +62,31 @@ function winner(c: Community, stat: string, detail?: string): AwardWinner {
   return { community: c.shortName, mascot: c.mascot, stat, detail };
 }
 
-const SIZE_ORDER: CommunitySize[] = ["Extra Large", "Medium", "Small", "Family Group"];
+// This is a REGIONAL recognition — no STRATCOM vs non-STRATCOM distinction.
+// Size tiers: the region has only one true Extra Large community, so XL +
+// (Large) + Medium are grouped into a single "XLM" division alongside Small
+// and Family Group.
+type SizeGroup = "XLM" | "Small" | "Family Group";
+function sizeGroup(size: CommunitySize): SizeGroup {
+  if (size === "Extra Large" || size === "Medium") return "XLM";
+  if (size === "Small") return "Small";
+  return "Family Group";
+}
+const SIZE_GROUPS: { group: SizeGroup; title: string; emoji: string }[] = [
+  { group: "XLM", title: "XLM", emoji: "🐘" },
+  { group: "Small", title: "Small", emoji: "🐢" },
+  { group: "Family Group", title: "Family Group", emoji: "🐣" },
+];
 
 /** Build the full week's award list, in presentation order (build to the finale) */
-export function buildWeeklyAwards(): Award[] {
-  const ranked = rankedCommunities();
+export function buildWeeklyAwards(communities: Community[] = COMMUNITIES): Award[] {
+  const ranked = rankedCommunities(communities);
+  const byIdLocal = (id: string) => communities.find((c) => c.id === id) ?? byId(id);
   const awards: Award[] = [];
 
   // --- Biggest weekly jump (opens the show with momentum) ---
-  const movers = COMMUNITIES.map((c) => ({ c, d: lastWeekDelta(c) }))
+  const movers = communities
+    .map((c) => ({ c, d: lastWeekDelta(c) }))
     .filter((x): x is { c: Community; d: number } => x.d !== null && x.d > 0)
     .sort((a, b) => b.d - a.d);
   if (movers.length) {
@@ -80,22 +96,24 @@ export function buildWeeklyAwards(): Award[] {
       subtitle: "Largest Sunday attendance gain in the past week",
       emoji: "🚀",
       tone: "teal",
-      winners: [winner(movers[0].c, `${signed(movers[0].d)} this week`, TEAM_LABELS[movers[0].c.team])],
+      winners: [winner(movers[0].c, `${signed(movers[0].d)} this week`, movers[0].c.size)],
       blurb: "Something is moving here — whatever they did last week, do it again.",
     });
   }
 
   // --- Full House (highest single Sunday) ---
-  const fullest = [...COMMUNITIES].sort((a, b) => peakWeek(b) - peakWeek(a))[0];
-  awards.push({
-    id: "full-house",
-    title: "Full House",
-    subtitle: "Highest single-Sunday worship attendance",
-    emoji: "🏠",
-    tone: "blue",
-    winners: [winner(fullest, `${peakWeek(fullest)} in one service`, fullest.size)],
-    blurb: "The room was packed. That is what momentum looks like.",
-  });
+  const fullest = [...communities].sort((a, b) => peakWeek(b) - peakWeek(a))[0];
+  if (fullest && peakWeek(fullest) > 0) {
+    awards.push({
+      id: "full-house",
+      title: "Full House",
+      subtitle: "Highest single-Sunday worship attendance",
+      emoji: "🏠",
+      tone: "blue",
+      winners: [winner(fullest, `${peakWeek(fullest)} in one service`, fullest.size)],
+      blurb: "The room was packed. That is what momentum looks like.",
+    });
+  }
 
   // --- Category podiums: Income, Members, Blessing ---
   const categoryAward = (
@@ -107,7 +125,7 @@ export function buildWeeklyAwards(): Award[] {
     key: "finance" | "activeMembers" | "blessing",
     blurb: string,
   ): Award => {
-    const top3 = [...COMMUNITIES]
+    const top3 = [...communities]
       .map((c) => ({ c, pts: categoryPoints(c[key]) }))
       .sort((a, b) => b.pts - a.pts)
       .slice(0, 3);
@@ -118,7 +136,7 @@ export function buildWeeklyAwards(): Award[] {
       emoji,
       tone,
       winners: top3.map(({ c, pts }, i) =>
-        winner(c, `${signed(pts)} pts`, `${["🥇", "🥈", "🥉"][i]} ${TEAM_LABELS[c.team]}`),
+        winner(c, `${signed(pts)} pts`, `${["🥇", "🥈", "🥉"][i]} ${c.size}`),
       ),
       blurb,
     };
@@ -158,31 +176,30 @@ export function buildWeeklyAwards(): Award[] {
     ),
   );
 
-  // --- Size-class champions (every size has a chance to shine) ---
-  for (const size of SIZE_ORDER) {
-    const inSize = ranked.filter((c) => c.size === size);
-    if (!inSize.length) continue;
-    const champ = inSize[0];
+  // --- Division champions: XLM / Small / Family Group ---
+  for (const { group, title, emoji } of SIZE_GROUPS) {
+    const inGroup = ranked.filter((c) => sizeGroup(c.size) === group);
+    if (!inGroup.length) continue;
+    const champ = inGroup[0];
     awards.push({
-      id: `size-${size.toLowerCase().replace(/\s+/g, "-")}`,
-      title: `${size} Champion`,
-      subtitle: `Best ${size.toLowerCase()} community by total points`,
-      emoji: size === "Extra Large" ? "🐘" : size === "Medium" ? "🦌" : size === "Small" ? "🐢" : "🐣",
+      id: `size-${group.toLowerCase().replace(/\s+/g, "-")}`,
+      title: `${title} Champion`,
+      subtitle: `Best ${title} community by total points`,
+      emoji,
       tone: "violet",
-      winners: [winner(byId(champ.id), `${signed(champ.points)} pts`, TEAM_LABELS[champ.team])],
+      winners: [winner(byIdLocal(champ.id), `${signed(champ.points)} pts`, champ.size)],
       blurb:
-        size === "Small" || size === "Family Group"
+        group === "Small" || group === "Family Group"
           ? "Punching above their weight — growth is measured from your own baseline."
-          : "Leading their division and setting the pace.",
+          : "Leading the division and setting the pace.",
     });
   }
 
-  // --- David Award: best Small/Family community beating bigger ones ---
-  const small = ranked.filter((c) => c.size === "Small" || c.size === "Family Group");
-  const davidBeatsMediumPlus = small.find(
-    (c) => c.rank < (ranked.find((r) => r.size === "Medium")?.rank ?? Infinity),
-  );
-  if (davidBeatsMediumPlus) {
+  // --- David Award: best Small/Family community out-pointing the XLM tier ---
+  const small = ranked.filter((c) => sizeGroup(c.size) === "Small" || sizeGroup(c.size) === "Family Group");
+  const bestXlmRank = ranked.find((r) => sizeGroup(r.size) === "XLM")?.rank ?? Infinity;
+  const davidBeatsXlm = small.find((c) => c.rank < bestXlmRank);
+  if (davidBeatsXlm) {
     awards.push({
       id: "david",
       title: "The David Award",
@@ -191,40 +208,17 @@ export function buildWeeklyAwards(): Award[] {
       tone: "gold",
       winners: [
         winner(
-          byId(davidBeatsMediumPlus.id),
-          `#${davidBeatsMediumPlus.rank} overall · ${signed(davidBeatsMediumPlus.points)} pts`,
-          `${davidBeatsMediumPlus.size} · ${TEAM_LABELS[davidBeatsMediumPlus.team]}`,
+          byIdLocal(davidBeatsXlm.id),
+          `#${davidBeatsXlm.rank} overall · ${signed(davidBeatsXlm.points)} pts`,
+          davidBeatsXlm.size,
         ),
       ],
       blurb: "Size is not destiny. Baselines are. Well done.",
     });
   }
 
-  // --- STRATCOM Cup (team with the most aggregate points) ---
-  const teamTotals = new Map<Community["team"], number>();
-  for (const c of COMMUNITIES) {
-    teamTotals.set(c.team, (teamTotals.get(c.team) || 0) + totalPoints(c));
-  }
-  const topTeam = [...teamTotals.entries()].sort((a, b) => b[1] - a[1])[0];
-  awards.push({
-    id: "stratcom-cup",
-    title: "STRATCOM Cup",
-    subtitle: "Challenge team with the most combined points",
-    emoji: "🏆",
-    tone: "violet",
-    winners: [
-      {
-        community: TEAM_LABELS[topTeam[0]],
-        mascot: "mentor",
-        stat: `${signed(topTeam[1])} combined pts`,
-        detail: `${COMMUNITIES.filter((c) => c.team === topTeam[0]).length} communities`,
-      },
-    ],
-    blurb: "Cross-regional teamwork carries the region. This is the team to beat.",
-  });
-
   // --- Triple Header: beat target in all three lanes at once ---
-  const triple = COMMUNITIES.filter(
+  const triple = communities.filter(
     (c) => pctOfTarget(c.finance) >= 100 && pctOfTarget(c.activeMembers) >= 100 && pctOfTarget(c.blessing) >= 100,
   );
   if (triple.length) {
@@ -234,7 +228,7 @@ export function buildWeeklyAwards(): Award[] {
       subtitle: "Beat target in Income, Members, AND Blessing",
       emoji: "⭐",
       tone: "gold",
-      winners: triple.map((c) => winner(c, "All three lanes cleared", TEAM_LABELS[c.team])),
+      winners: triple.map((c) => winner(c, "All three lanes cleared", c.size)),
       blurb: "The rarest feat in the campaign. Standing ovation.",
     });
   }
@@ -243,19 +237,21 @@ export function buildWeeklyAwards(): Award[] {
   const champ = ranked[0];
   const runnerUp = ranked[1];
   const third = ranked[2];
-  awards.push({
-    id: "league-champion",
-    title: "League Champion",
-    subtitle: "Overall #1 — most total points this trimester",
-    emoji: "👑",
-    tone: "gold",
-    winners: [
-      winner(byId(champ.id), `${signed(champ.points)} pts`, `🥇 ${TEAM_LABELS[champ.team]}`),
-      winner(byId(runnerUp.id), `${signed(runnerUp.points)} pts`, "🥈 Runner-up"),
-      winner(byId(third.id), `${signed(third.points)} pts`, "🥉 Third place"),
-    ],
-    blurb: "Top of the standings. The score is a mirror of the mission — and the mission is winning.",
-  });
+  if (champ) {
+    awards.push({
+      id: "league-champion",
+      title: "League Champion",
+      subtitle: "Overall #1 — most total points this trimester",
+      emoji: "👑",
+      tone: "gold",
+      winners: [
+        winner(byIdLocal(champ.id), `${signed(champ.points)} pts`, "🥇 Region #1"),
+        ...(runnerUp ? [winner(byIdLocal(runnerUp.id), `${signed(runnerUp.points)} pts`, "🥈 Runner-up")] : []),
+        ...(third ? [winner(byIdLocal(third.id), `${signed(third.points)} pts`, "🥉 Third place")] : []),
+      ],
+      blurb: "Top of the standings. The score is a mirror of the mission — and the mission is winning.",
+    });
+  }
 
   return awards;
 }
@@ -267,10 +263,10 @@ export interface WeeklyAwardsMeta {
   awardCount: number;
 }
 
-export function weeklyAwardsMeta(awards: Award[]): WeeklyAwardsMeta {
+export function weeklyAwardsMeta(awards: Award[], communities: Community[] = COMMUNITIES): WeeklyAwardsMeta {
   return {
     trimesterLabel: "Trimester 2 · May–Aug 2026",
-    communityCount: COMMUNITIES.length,
+    communityCount: communities.length,
     awardCount: awards.length,
   };
 }
@@ -303,27 +299,27 @@ function sum(nums: number[]): number {
   return nums.reduce((a, b) => a + b, 0);
 }
 
-function beatTarget(key: "finance" | "activeMembers" | "blessing"): number {
-  return COMMUNITIES.filter((c) => pctOfTarget(c[key]) >= 100).length;
+function beatTarget(list: Community[], key: "finance" | "activeMembers" | "blessing"): number {
+  return list.filter((c) => pctOfTarget(c[key]) >= 100).length;
 }
 
 /** Latest recorded Sunday across the region (sum of each community's last week) */
-function regionLatestSunday(): number {
+function regionLatestSunday(list: Community[]): number {
   return sum(
-    COMMUNITIES.map((c) => {
+    list.map((c) => {
       const weeks = c.weeklyAttendance.filter((w): w is number => w !== null && w > 0);
       return weeks.length ? weeks[weeks.length - 1] : 0;
     }),
   );
 }
 
-export function buildRegionOverview(): OverviewSlide[] {
+export function buildRegionOverview(communities: Community[] = COMMUNITIES): OverviewSlide[] {
   // Growth is computed only over communities that have ENTERED data for a lane
   // (result > 0). Several communities haven't logged income/blessing for the
   // partial month yet; counting their zeros as "decline" would slander them and
   // tank the region total. So we aggregate reporters only — true and fairer.
   const laneGrowth = (key: "finance" | "activeMembers" | "blessing") => {
-    const reporters = COMMUNITIES.filter((c) => c[key].result > 0);
+    const reporters = communities.filter((c) => c[key].result > 0);
     const result = sum(reporters.map((c) => c[key].result));
     const baseline = sum(reporters.map((c) => c[key].baseline));
     return { result, growth: baseline ? (result / baseline - 1) * 100 : 0, reporters: reporters.length };
@@ -334,9 +330,8 @@ export function buildRegionOverview(): OverviewSlide[] {
 
   // Region points = sum of points from reporting communities only (a 0-result
   // lane contributes 0, never a negative), so the headline reflects real work.
-  const regionPoints = sum(COMMUNITIES.map((c) => Math.max(0, totalPoints(c))));
+  const regionPoints = sum(communities.map((c) => Math.max(0, totalPoints(c))));
   const reporting = income.reporters;
-  const teamCount = new Set(COMMUNITIES.map((c) => c.team)).size;
 
   const incomeResult = income.result;
   const incomeGrowth = income.growth;
@@ -355,9 +350,8 @@ export function buildRegionOverview(): OverviewSlide[] {
       subtitle: "The Northeast at a glance this trimester",
       stats: [
         { label: "Region Points", value: `${regionPoints >= 0 ? "+" : ""}${regionPoints.toLocaleString("en-US")}`, sub: "combined growth points", tone: "gold" },
-        { label: "Communities", value: `${COMMUNITIES.length}`, sub: `${reporting} reporting income`, tone: "blue" },
-        { label: "Challenge Teams", value: `${teamCount}`, sub: "STRATCOMs in play", tone: "violet" },
-        { label: "Latest Sunday", value: regionLatestSunday().toLocaleString("en-US"), sub: "in worship region-wide", tone: "teal" },
+        { label: "Communities", value: `${communities.length}`, sub: `${reporting} reporting income`, tone: "blue" },
+        { label: "Latest Sunday", value: regionLatestSunday(communities).toLocaleString("en-US"), sub: "in worship region-wide", tone: "teal" },
       ],
       blurb: "Before we celebrate communities, here is the whole field — this is us, together.",
     },
@@ -379,9 +373,9 @@ export function buildRegionOverview(): OverviewSlide[] {
       title: "Who Cleared Target",
       subtitle: "Communities at or above their trimester target",
       stats: [
-        { label: "Income Target", value: `${beatTarget("finance")} / ${COMMUNITIES.length}`, sub: "beat income goal", tone: "gold" },
-        { label: "Members Target", value: `${beatTarget("activeMembers")} / ${COMMUNITIES.length}`, sub: "beat membership goal", tone: "teal" },
-        { label: "Blessing Target", value: `${beatTarget("blessing")} / ${COMMUNITIES.length}`, sub: "beat blessing goal", tone: "rose" },
+        { label: "Income Target", value: `${beatTarget(communities, "finance")} / ${communities.length}`, sub: "beat income goal", tone: "gold" },
+        { label: "Members Target", value: `${beatTarget(communities, "activeMembers")} / ${communities.length}`, sub: "beat membership goal", tone: "teal" },
+        { label: "Blessing Target", value: `${beatTarget(communities, "blessing")} / ${communities.length}`, sub: "beat blessing goal", tone: "rose" },
       ],
       blurb: "Now — let's honor the communities who made it happen.",
     },
