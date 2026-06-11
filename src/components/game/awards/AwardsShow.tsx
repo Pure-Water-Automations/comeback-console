@@ -1415,6 +1415,9 @@ export function AwardsShow() {
   const activeSlide = deck[slideIndex] ?? OPENING_SLIDE;
   const activeTone = activeSlide.tone;
   const finaleMusicActive = isFinaleMoment(activeSlide);
+  // ASCII text-art fireworks are the celebration effect on every winner slide
+  // (awards + finale), replacing the old particle dots entirely.
+  const fireworksActive = activeSlide.kind === "award" || activeSlide.kind === "finale";
 
   const toggleFullscreen = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -1445,10 +1448,6 @@ export function AwardsShow() {
     (nextIndex: number) => {
       const nextSlide = deck[nextIndex] ?? OPENING_SLIDE;
 
-      const nextTone = nextSlide.tone;
-      if (!reducedMotion) {
-        setFireworkCue({ id: Date.now() + nextIndex, tone: nextTone, finale: isFinaleMoment(nextSlide) });
-      }
       if (!muted && nextSlide.kind !== "title") {
         const finale = isFinaleMoment(nextSlide);
         playFanfare(finale);
@@ -1611,8 +1610,7 @@ export function AwardsShow() {
       onClick={handleStageClick}
     >
       <CosmicBackdrop tone={activeTone} />
-      <AsciiFireworks active={finaleMusicActive} />
-      <FireworksLayer cue={fireworkCue} reducedMotion={reducedMotion} />
+      <AsciiFireworks active={fireworksActive} />
       <audio ref={finaleMusicRef} src="/music/dawn_of_the_kingdom.mp3" loop preload="auto" className="hidden" />
       <ProgressRail
         slideIndex={slideIndex}
