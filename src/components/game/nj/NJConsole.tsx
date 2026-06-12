@@ -10,6 +10,7 @@ import {
   Sparkles,
   Trophy,
   Users,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { motion, useScroll, useSpring, useTransform } from "motion/react";
@@ -26,6 +27,7 @@ import { BlessingPanel } from "./BlessingPanel";
 import { FinancePanel } from "./FinancePanel";
 import { OverviewPanel } from "./OverviewPanel";
 import { OutreachPanel } from "./OutreachPanel";
+import { PartyPanel } from "./party/PartyPanel";
 import { PeoplePanel } from "./PeoplePanel";
 import { celebrate, ProgressHud } from "./ProgressHud";
 import { QuestsPanel } from "./QuestsPanel";
@@ -36,6 +38,7 @@ export const NJ_TAB_IDS = [
   "finance",
   "attendance",
   "people",
+  "party",
   "blessing",
   "quests",
   "outreach",
@@ -70,6 +73,7 @@ const TABS = [
   { id: "finance", label: "Finance", icon: Coins },
   { id: "attendance", label: "Attendance", icon: CalendarDays },
   { id: "people", label: "People", icon: Users },
+  { id: "party", label: "Party", icon: UsersRound },
   { id: "blessing", label: "Blessing", icon: Heart },
   { id: "quests", label: "Quests", icon: ScrollText },
   { id: "outreach", label: "Outreach", icon: Radar },
@@ -322,7 +326,7 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           onValueChange={(value) => onTabChange(value as NJTabId)}
           className="w-full"
         >
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-px border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md md:grid-cols-4 xl:grid-cols-8">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-px border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md md:grid-cols-4 xl:grid-cols-9">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -349,6 +353,9 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           </TabsContent>
           <TabsContent value="people" className="mt-5">
             <PeoplePanel />
+          </TabsContent>
+          <TabsContent value="party" className="mt-5">
+            <PartyPanel />
           </TabsContent>
           <TabsContent value="blessing" className="mt-5">
             <BlessingPanel />

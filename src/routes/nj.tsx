@@ -6,8 +6,10 @@ type NJSearch = {
   tab: NJTabId;
 };
 
+const VALID_TAB_IDS = new Set<NJTabId>(NJ_TAB_IDS);
+
 function tabFromSearch(value: unknown): NJTabId {
-  return typeof value === "string" && NJ_TAB_IDS.includes(value as NJTabId)
+  return typeof value === "string" && VALID_TAB_IDS.has(value as NJTabId)
     ? (value as NJTabId)
     : "overview";
 }
