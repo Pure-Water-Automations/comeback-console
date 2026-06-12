@@ -77,8 +77,9 @@ export const searchDirectory = createServerFn({ method: "POST" })
     }
   });
 
-/** Read the current party roster. */
-export const fetchParty = createServerFn({ method: "GET" }).handler(
+/** Read the current party roster. POST (not GET) so the browser never serves a
+ *  stale cached roster after a member is added/removed — the roster mutates. */
+export const fetchParty = createServerFn({ method: "POST" }).handler(
   async (): Promise<{ ok: boolean; members: PartyMember[]; message?: string }> => {
     try {
       const { getValues } = await import("@/lib/server/sheets");
