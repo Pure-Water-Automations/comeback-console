@@ -27,6 +27,7 @@ import { BlessingPanel } from "./BlessingPanel";
 import { FinancePanel } from "./FinancePanel";
 import { OverviewPanel } from "./OverviewPanel";
 import { OutreachPanel } from "./OutreachPanel";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { PartyPanel } from "./party/PartyPanel";
 import { PeoplePanel } from "./PeoplePanel";
 import { celebrate, ProgressHud } from "./ProgressHud";
@@ -38,7 +39,6 @@ export const NJ_TAB_IDS = [
   "finance",
   "attendance",
   "people",
-  "party",
   "blessing",
   "quests",
   "outreach",
@@ -73,7 +73,6 @@ const TABS = [
   { id: "finance", label: "Finance", icon: Coins },
   { id: "attendance", label: "Attendance", icon: CalendarDays },
   { id: "people", label: "People", icon: Users },
-  { id: "party", label: "Party", icon: UsersRound },
   { id: "blessing", label: "Blessing", icon: Heart },
   { id: "quests", label: "Quests", icon: ScrollText },
   { id: "outreach", label: "Outreach", icon: Radar },
@@ -189,9 +188,11 @@ function HeaderChip({ children }: { children: ReactNode }) {
 function ConsoleHeader({
   mascotPulse,
   onMascotClick,
+  onOpenParty,
 }: {
   mascotPulse: number;
   onMascotClick: () => void;
+  onOpenParty: () => void;
 }) {
   return (
     <motion.header
@@ -244,27 +245,37 @@ function ConsoleHeader({
             ))}
           </div>
         </div>
-        <motion.button
-          type="button"
-          className="mx-auto flex h-40 w-40 cursor-pointer items-center justify-center border border-white/10 bg-black/50 shadow-[0_0_28px_rgba(45,212,191,0.18)] outline-none transition hover:border-teal-100/45 focus-visible:border-teal-100/70 md:h-48 md:w-48"
-          animate={{ y: [0, -10, 0] }}
-          transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
-          onClick={onMascotClick}
-          aria-label="Adventurer mascot"
-        >
-          <motion.div
-            key={mascotPulse}
-            initial={{ scale: 1 }}
-            animate={{ scale: [1, 1.12, 1] }}
-            transition={{ duration: 0.22, ease: EASE }}
+        <div className="mx-auto flex flex-col items-center gap-3">
+          <motion.button
+            type="button"
+            className="flex h-40 w-40 cursor-pointer items-center justify-center border border-white/10 bg-black/50 shadow-[0_0_28px_rgba(45,212,191,0.18)] outline-none transition hover:border-teal-100/45 focus-visible:border-teal-100/70 md:h-48 md:w-48"
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
+            onClick={onMascotClick}
+            aria-label="Adventurer mascot"
           >
-            <img
-              src={adventurerSprite}
-              alt=""
-              className="h-32 w-32 object-contain [image-rendering:pixelated] drop-shadow-2xl md:h-40 md:w-40"
-            />
-          </motion.div>
-        </motion.button>
+            <motion.div
+              key={mascotPulse}
+              initial={{ scale: 1 }}
+              animate={{ scale: [1, 1.12, 1] }}
+              transition={{ duration: 0.22, ease: EASE }}
+            >
+              <img
+                src={adventurerSprite}
+                alt=""
+                className="h-32 w-32 object-contain [image-rendering:pixelated] drop-shadow-2xl md:h-40 md:w-40"
+              />
+            </motion.div>
+          </motion.button>
+          <button
+            type="button"
+            onClick={onOpenParty}
+            className="flex w-40 items-center justify-center gap-2 border border-teal-200/35 bg-teal-300/10 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.26em] text-teal-100 shadow-[0_0_22px_rgba(45,212,191,0.18)] backdrop-blur-md transition hover:border-teal-100/60 hover:bg-teal-300/20 md:w-48"
+          >
+            <UsersRound className="size-4" />
+            Your Party
+          </button>
+        </div>
       </div>
     </motion.header>
   );
@@ -273,6 +284,7 @@ function ConsoleHeader({
 export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
   const mascotClicksRef = useRef(0);
   const [mascotPulse, setMascotPulse] = useState(0);
+  const [partyOpen, setPartyOpen] = useState(false);
 
   const handleMascotClick = useCallback(() => {
     setMascotPulse((current) => current + 1);
@@ -318,7 +330,20 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
       />
       <CosmicBackdrop />
       <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-6 md:px-8 lg:px-10">
-        <ConsoleHeader mascotPulse={mascotPulse} onMascotClick={handleMascotClick} />
+        <ConsoleHeader
+          mascotPulse={mascotPulse}
+          onMascotClick={handleMascotClick}
+          onOpenParty={() => setPartyOpen(true)}
+        />
+        <Dialog open={partyOpen} onOpenChange={setPartyOpen}>
+          <DialogContent
+            className="h-[92dvh] w-[min(96vw,1280px)] max-w-none overflow-y-auto rounded-none border-white/15 bg-[#070710]/97 p-5 text-white backdrop-blur-xl md:p-8"
+            aria-describedby={undefined}
+          >
+            <DialogTitle className="sr-only">Your Party</DialogTitle>
+            <PartyPanel />
+          </DialogContent>
+        </Dialog>
         <ProgressHud onKonami={handleKonami} onEarlyBird={handleEarlyBird} onNightOwl={handleNightOwl} />
 
         <Tabs
@@ -353,9 +378,6 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           </TabsContent>
           <TabsContent value="people" className="mt-5">
             <PeoplePanel />
-          </TabsContent>
-          <TabsContent value="party" className="mt-5">
-            <PartyPanel />
           </TabsContent>
           <TabsContent value="blessing" className="mt-5">
             <BlessingPanel />
