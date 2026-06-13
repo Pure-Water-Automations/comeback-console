@@ -12,4 +12,11 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    // Bundle face-api via its browser ESM entry instead of the Node.js entry (which requires
+    // @tensorflow/tfjs-node). The package's "browser" field points to face-api.esm.js.
+    ssr: {
+      noExternal: ["@vladmandic/face-api"],
+    },
+  },
 });

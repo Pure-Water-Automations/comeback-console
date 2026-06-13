@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeAll } from "vitest";
 
 vi.mock("@vladmandic/face-api", () => ({
   nets: {
@@ -21,7 +21,11 @@ vi.mock("@vladmandic/face-api", () => ({
   },
 }));
 
-import { buildFaceMatcher } from "./faceApi";
+import { buildFaceMatcher, loadModels } from "./faceApi";
+
+beforeAll(async () => {
+  await loadModels();
+});
 
 describe("buildFaceMatcher", () => {
   it("returns null for empty memory", () => {
