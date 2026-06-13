@@ -1,16 +1,17 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Loader2, Search, Upload, X } from "lucide-react";
+import { Check, Loader2, Search, Upload, UserPlus, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { toast } from "sonner";
 
 import {
+  addGuest,
   checkInSunday,
   listSundays,
   searchRoster,
   type RosterPerson,
   type SundayColumn,
 } from "@/lib/njActions";
-import { award } from "@/lib/progression";
+import { award, awardOnce } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
 import { detectFaces, buildFaceMatcher, loadModels, computeDescriptorFromCanvas, type FaceMemoryEntry } from "@/lib/faceApi";
@@ -252,6 +253,7 @@ export function PhotoRollCall() {
       setFaces(faceBoxes);
       setModelState("done");
       celebrate(award("photo_uploaded"));
+      celebrate(awardOnce("feature_first_use", "feature:photo_roll"));
       const count = detected.length;
       if (count > 0) {
         toast.success(`${count} face${count > 1 ? "s" : ""} detected!`);
@@ -387,6 +389,88 @@ export function PhotoRollCall() {
     setSearchQuery("");
   };
 
+  // Tag a face that is NOT in the directory as a Guest: queue to the Action Queue
+  // (review-only) and remember the face. row stays 0 — the sentinel for "no roster row",
+  // so this person is never written into the Sunday Service sheet by check-in.
+  const handleAddGuest = async (boxId: string, rawName: string) => {
+    const name = rawName.trim();
+    if (!name) return;
+    const box = faces.find((f) => f.id === boxId);
+    if (!box) return;
+
+    // Resolve descriptor (pre-computed for auto boxes, derived from crop for manual ones).
+    let descriptor = box.descriptor;
+    if (!descriptor && imgRef.current) {
+      const img = imgRef.current;
+      const canvas = document.createElement("canvas");
+      const pxW = (box.width / 100) * img.naturalWidth;
+      const pxH = pxW;
+      const pxX = (box.x / 100) * img.naturalWidth;
+      const pxY = (box.y / 100) * img.naturalHeight;
+      canvas.width = pxW;
+      canvas.height = pxH;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, pxX, pxY, pxW, pxH, 0, 0, pxW, pxH);
+        descriptor = await computeDescriptorFromCanvas(canvas);
+      }
+    }
+
+    // Queue the guest (review-only — the office moves them onto the Guest Tracker).
+    const sundayDate = sundays.find((s) => s.col === selectedCol)?.date ?? "";
+    const [firstName, ...rest] = name.split(/\s+/);
+    try {
+      const res = await addGuest({
+        data: {
+          firstName,
+          lastName: rest.join(" "),
+          firstSunday: sundayDate,
+          notes: "Captured via Photo Roll Call",
+        },
+      });
+      if (res.ok) {
+        toast.success(res.message || `${name} queued as guest.`);
+      } else {
+        toast.error(res.message || "Guest queue failed — tagged locally.");
+      }
+    } catch (err) {
+      console.error("addGuest failed:", err);
+      toast.error("Guest queue failed — tagged locally.");
+    }
+
+    // Mark the box as a confirmed Guest (row 0 = off-roster, excluded from sheet check-in).
+    setFaces((prev) =>
+      prev.map((f) => (f.id === boxId ? { ...f, name, type: "Guest", row: 0 } : f)),
+    );
+
+    // Remember the face so a returning visitor is recognized next time.
+    if (descriptor) {
+      const captured = descriptor;
+      setFaceMemory((current) => {
+        const prevEntry = current[name];
+        const next: Record<string, FaceMemoryValue> = {
+          ...current,
+          [name]: {
+            count: (prevEntry?.count ?? 0) + 1,
+            row: 0,
+            type: "Guest",
+            descriptors: [...(prevEntry?.descriptors ?? []), captured],
+          },
+        };
+        try {
+          localStorage.setItem("nj-face-memory-v1", JSON.stringify(next));
+        } catch (e) {
+          console.error("Failed to write to localStorage:", e);
+        }
+        return next;
+      });
+    }
+
+    celebrate(award("face_tagged"));
+    setActiveBoxId(null);
+    setSearchQuery("");
+  };
+
   // Delete/cancel a single face box
   const handleRemoveFaceBox = (boxId: string) => {
     setFaces((prev) => prev.filter((box) => box.id !== boxId));
@@ -409,12 +493,14 @@ export function PhotoRollCall() {
   const handleCheckIn = async () => {
     if (checkingIn || !selectedCol) return;
 
+    // Only real roster rows (row > 0) are written to the Sunday sheet. Guests / off-roster
+    // faces carry row 0 and are handled via the Action Queue, never the direct sheet write.
     const confirmedRows = faces
       .map((f) => f.row)
-      .filter((row): row is number => row !== null);
+      .filter((row): row is number => row !== null && row > 0);
 
     if (confirmedRows.length === 0) {
-      toast.error("No confirmed faces found. Tag at least one face before checking in.");
+      toast.error("No roster members tagged. Tag at least one directory member before checking in.");
       return;
     }
 
@@ -439,7 +525,10 @@ export function PhotoRollCall() {
     }
   };
 
-  const confirmedFacesCount = faces.filter((f) => f.name !== null).length;
+  // Faces that will actually be written to the Sunday sheet (roster members only; row > 0).
+  const confirmedFacesCount = faces.filter((f) => f.row !== null && f.row > 0).length;
+  // Off-roster faces tagged as guests this session (already queued to the Action Queue).
+  const guestFacesCount = faces.filter((f) => f.name !== null && f.row === 0).length;
 
   return (
     <motion.section
@@ -705,6 +794,27 @@ export function PhotoRollCall() {
                                 </div>
                               )}
                             </div>
+
+                            {/* Off-roster fallback: queue as Guest (review-only) + remember the face */}
+                            {!isConfirmed && searchQuery.trim().length >= 2 && (
+                              <div className="mt-2 border-t border-white/10 pt-2">
+                                <p className="mb-1.5 text-[9px] uppercase tracking-widest text-white/35">
+                                  Not in the directory?
+                                </p>
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center justify-center gap-1.5 border border-amber-200/30 bg-amber-300/10 px-2 py-1.5 text-[9px] font-bold uppercase tracking-wider text-amber-100 transition hover:bg-amber-300/20 rounded-none"
+                                  onClick={() => void handleAddGuest(box.id, searchQuery)}
+                                >
+                                  <UserPlus className="size-3" />
+                                  Add “{searchQuery.trim()}” as Guest
+                                </button>
+                                <p className="mt-1 text-[8px] leading-3 text-white/30 normal-case tracking-normal">
+                                  Queues to the office for review — counts as guest attendance,
+                                  not a Sunday-sheet check-in.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -799,7 +909,13 @@ export function PhotoRollCall() {
           </div>
 
           {/* Action Button */}
-          <div className="flex items-end justify-end">
+          <div className="flex flex-col items-end justify-end gap-1.5">
+            {guestFacesCount > 0 && (
+              <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] text-amber-200/80">
+                <UserPlus className="size-3" />
+                {guestFacesCount} guest{guestFacesCount > 1 ? "s" : ""} queued for review
+              </p>
+            )}
             <button
               type="button"
               className={cn(

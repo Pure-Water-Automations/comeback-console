@@ -35,7 +35,7 @@ import {
   type QuestLane,
 } from "@/lib/njActions";
 import { LES_QUESTS, type LesQuest } from "@/lib/njData";
-import { award } from "@/lib/progression";
+import { award, awardOnce } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
 
@@ -313,9 +313,27 @@ function QuestCard({
   completionBusy: boolean;
   completionQueued: boolean;
   isCompleting: boolean;
-  onComplete: (quest: LesQuest) => void;
+  onComplete: (quest: LesQuest, completedDate: string) => void;
 }) {
   const completed = Boolean(quest.completedDate);
+  const [confirming, setConfirming] = useState(false);
+  const [completionDate, setCompletionDate] = useState("");
+
+  function openConfirm() {
+    setCompletionDate(todayShortDate());
+    setConfirming(true);
+  }
+
+  function cancelConfirm() {
+    setConfirming(false);
+    setCompletionDate("");
+  }
+
+  function submitComplete() {
+    onComplete(quest, completionDate || todayShortDate());
+    setConfirming(false);
+    setCompletionDate("");
+  }
 
   return (
     <motion.article
@@ -363,6 +381,38 @@ function QuestCard({
               </p>
               <p className="mt-2 font-mono text-lg font-bold text-white">{quest.completedDate}</p>
             </>
+          ) : confirming ? (
+            <>
+              <p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.26em] text-amber-100/80">
+                <CalendarDays className="size-4" />
+                Completion date
+              </p>
+              <input
+                className="mt-2 h-9 w-full border border-amber-100/35 bg-black/70 px-3 font-mono text-sm text-white outline-none transition placeholder:text-white/25 focus:border-amber-100/55"
+                value={completionDate}
+                onChange={(e) => setCompletionDate(e.target.value)}
+                placeholder="6/30/26"
+                autoFocus
+              />
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="flex h-9 items-center justify-center gap-1.5 border border-white/15 bg-white/[0.04] px-3 text-[9px] font-bold uppercase tracking-[0.22em] text-white/45 transition hover:bg-white/[0.07] hover:text-white/70"
+                  onClick={cancelConfirm}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="flex h-9 items-center justify-center gap-1.5 border border-amber-100/45 bg-amber-300/15 px-3 text-[9px] font-bold uppercase tracking-[0.22em] text-amber-50 transition hover:bg-amber-300/20 disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={completionBusy || !completionDate.trim()}
+                  onClick={submitComplete}
+                >
+                  {isCompleting ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+                  Confirm
+                </button>
+              </div>
+            </>
           ) : (
             <>
               <p className="flex items-center gap-2 text-[10px] uppercase tracking-[0.26em] text-white/35">
@@ -375,9 +425,9 @@ function QuestCard({
                 type="button"
                 className="mt-3 flex h-9 w-full items-center justify-center gap-2 border border-amber-100/35 bg-amber-300/10 px-3 text-[9px] font-bold uppercase tracking-[0.24em] text-amber-50 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={completionBusy || completionQueued}
-                onClick={() => onComplete(quest)}
+                onClick={openConfirm}
               >
-                {isCompleting ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+                <CheckCircle2 className="size-4" />
                 {completionQueued ? "Queued" : "Mark complete"}
               </button>
             </>
@@ -413,6 +463,7 @@ function PostQuestCard() {
 
       if (res.ok) {
         celebrate(award("quest_posted"));
+        celebrate(awardOnce("feature_first_use", "feature:quest_post"));
         toast.success(res.message, {
           description: "Action Queue entry ready for office review.",
         });
@@ -458,16 +509,40 @@ function PostQuestCard() {
           </a>
         </div>
 
+        <div className="grid gap-2 sm:grid-cols-3">
+          {laneConfig.map((config) => {
+            const Icon = config.icon;
+            return (
+              <button
+                key={config.lane}
+                type="button"
+                className="flex h-14 items-center justify-center gap-2.5 border px-4 text-[10px] font-bold uppercase tracking-[0.28em] transition"
+                style={{
+                  borderColor: `${config.accent}55`,
+                  backgroundColor: `${config.accent}15`,
+                  color: config.accent,
+                  textShadow: `0 0 12px ${config.accent}88`,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${config.accent}25`;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${config.accent}15`;
+                }}
+                onClick={() => {
+                  setLane(config.lane as QuestLane);
+                  setOpen(true);
+                }}
+              >
+                <Icon className="size-4 shrink-0" />
+                {config.lane}
+                <span className="opacity-60">+</span>
+              </button>
+            );
+          })}
+        </div>
+
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <button
-              type="button"
-              className="flex h-16 w-full items-center justify-center gap-3 border border-violet-100/45 bg-violet-300/10 px-5 text-sm font-bold uppercase tracking-[0.32em] text-violet-50 shadow-[0_0_24px_rgba(168,85,247,0.16)] transition hover:bg-violet-300/15 lg:justify-self-end"
-            >
-              <ScrollText className="size-5" />
-              Post a quest +
-            </button>
-          </DialogTrigger>
           <DialogContent className={cn(DIALOG_CONTENT, "max-w-2xl")}>
             <DialogHeader className="pr-8 text-left">
               <DialogTitle className="text-2xl font-bold uppercase tracking-[0.28em] text-white">
@@ -478,38 +553,21 @@ function PostQuestCard() {
               </DialogDescription>
             </DialogHeader>
             <form className="grid gap-3" onSubmit={handleSubmit}>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Lane</span>
-                  <select
-                    className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={lane}
-                    onChange={(event) => setLane(event.target.value as QuestLane)}
-                    disabled={pending}
-                  >
-                    {laneConfig.map((config) => (
-                      <option key={config.lane} value={config.lane}>
-                        {config.lane}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Month</span>
-                  <select
-                    className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={month}
-                    onChange={(event) => setMonth(event.target.value)}
-                    disabled={pending}
-                  >
-                    {questMonthOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Month</span>
+                <select
+                  className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition focus:border-violet-100/45 disabled:cursor-not-allowed disabled:opacity-50"
+                  value={month}
+                  onChange={(event) => setMonth(event.target.value)}
+                  disabled={pending}
+                >
+                  {questMonthOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               <label className="block">
                 <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Title</span>
@@ -559,7 +617,7 @@ function GroupedQuestLog({
   quests,
 }: {
   completingQuestKey: string | null;
-  onCompleteQuest: (quest: LesQuest) => void;
+  onCompleteQuest: (quest: LesQuest, completedDate: string) => void;
   queuedCompletionKeys: Set<string>;
   quests: LesQuest[];
 }) {
@@ -675,7 +733,7 @@ export function QuestsPanel() {
   }, []);
 
   const handleCompleteQuest = useCallback(
-    async (quest: LesQuest) => {
+    async (quest: LesQuest, completedDate: string) => {
       const key = questKey(quest);
       if (completingQuestKey || queuedCompletionKeys.has(key)) return;
 
@@ -686,12 +744,13 @@ export function QuestsPanel() {
             lane: quest.lane as QuestLane,
             month: quest.month,
             title: quest.title,
-            completedDate: todayShortDate(),
+            completedDate: completedDate || todayShortDate(),
           },
         });
 
         if (res.ok) {
           celebrate(award("quest_completed"));
+          celebrate(awardOnce("feature_first_use", "feature:quest_complete"));
           toast.success(res.message, {
             description: "Action Queue entry ready for office review.",
           });

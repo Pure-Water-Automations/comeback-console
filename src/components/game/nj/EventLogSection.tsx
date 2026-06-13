@@ -24,7 +24,7 @@ import {
   type RosterPerson,
 } from "@/lib/njActions";
 import { fetchSmartRoster, type SmartRosterPerson } from "@/lib/njInsights";
-import { award } from "@/lib/progression";
+import { award, awardOnce } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
 
@@ -200,6 +200,7 @@ export function EventLogSection() {
       toastResult(res.ok, res.message);
       if (res.ok) {
         celebrate(award("event_created"));
+        celebrate(awardOnce("feature_first_use", "feature:event_create"));
         setEventDate("");
         setEventName("");
         await refreshEvents(res.col);
@@ -233,6 +234,7 @@ export function EventLogSection() {
       setSmartRosterLoaded(true);
       if (res.roster.length > 0) {
         celebrate(award("smart_roster_used"));
+        celebrate(awardOnce("feature_first_use", "feature:smart_roster"));
       }
     } catch (err) {
       setSmartMatchedEvents([]);

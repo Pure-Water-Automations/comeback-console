@@ -14,7 +14,7 @@ import {
   type DirectoryDuplicate,
   type MissingRegular,
 } from "@/lib/njInsights";
-import { award } from "@/lib/progression";
+import { award, awardOnce } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -453,6 +453,7 @@ export function DataPatrolSection() {
 
       if (res.ok) {
         celebrate(award("data_fix"));
+        celebrate(awardOnce("feature_first_use", "feature:data_fix"));
         setQueuedKeys((current) => {
           const next = new Set(current);
           next.add(key);

@@ -25,7 +25,7 @@ import {
   type OutreachRadar,
   type RadarPerson,
 } from "@/lib/njInsights";
-import { award } from "@/lib/progression";
+import { award, awardOnce } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { DataPatrolSection } from "./DataPatrolSection";
 import { celebrate } from "./ProgressHud";
@@ -411,6 +411,7 @@ export function OutreachPanel() {
 
       if (res.ok) {
         celebrate(award("outreach_sent"));
+        celebrate(awardOnce("feature_first_use", "feature:outreach"));
         setQueuedKeys((current) => {
           const next = new Set(current);
           next.add(key);

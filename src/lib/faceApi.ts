@@ -5,7 +5,8 @@ import type * as FaceApiTypes from "@vladmandic/face-api";
 export interface DetectedFace {
   x: number;      // percentage left (0-100)
   y: number;      // percentage top (0-100)
-  width: number;  // percentage width (0-100), box is square
+  width: number;  // percentage width (0-100); PhotoRollCall renders boxes square off this
+  height: number; // percentage height (0-100); true box height for accurate crops
   descriptor: number[];  // 128-dim embedding
 }
 
@@ -58,6 +59,7 @@ export async function detectFaces(img: HTMLImageElement): Promise<DetectedFace[]
       x: (box.x / img.naturalWidth) * 100,
       y: (box.y / img.naturalHeight) * 100,
       width: (box.width / img.naturalWidth) * 100,
+      height: (box.height / img.naturalHeight) * 100,
       descriptor: Array.from(d.descriptor),
     };
   });

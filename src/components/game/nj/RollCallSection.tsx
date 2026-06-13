@@ -12,7 +12,7 @@ import {
   type SundayColumn,
 } from "@/lib/njActions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { award } from "@/lib/progression";
+import { award, awardOnce } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
 
@@ -198,6 +198,7 @@ export function RollCallSection() {
       toastResult(res.ok, res.message);
       if (res.ok) {
         celebrate(award("checkin", checkedInCount));
+        celebrate(awardOnce("feature_first_use", "feature:roll_call"));
         setParty([]);
         await refreshSundays(selectedCol);
       }

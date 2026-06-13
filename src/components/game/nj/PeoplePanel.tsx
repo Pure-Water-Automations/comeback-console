@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { ACTION_QUEUE_URL, addGuest } from "@/lib/njActions";
 import { GUEST_FUNNEL, MEMBERSHIP, RECENT_GUESTS } from "@/lib/njData";
-import { award } from "@/lib/progression";
+import { award, awardOnce } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { celebrate } from "./ProgressHud";
@@ -445,6 +445,7 @@ function CaptureGuestCard() {
 
       if (res.ok) {
         celebrate(award("guest_added"));
+        celebrate(awardOnce("feature_first_use", "feature:guest_add"));
         toast.success(res.message, {
           description: "Action Queue entry ready for office review.",
         });

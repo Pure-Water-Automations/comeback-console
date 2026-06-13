@@ -3,6 +3,8 @@ import { X, ChevronRight, Sparkles } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import naviImg from "@/assets/sprites/spirit/navi.gif";
 import naviHeySfx from "@/assets/audio/navi-hey.mp3";
+import { awardOnce } from "@/lib/progression";
+import { celebrate } from "./ProgressHud";
 
 // Navi's "Hey! Listen!" chime — played on the help gesture and each step arrival.
 let naviAudio: HTMLAudioElement | null = null;
@@ -107,12 +109,22 @@ export function HelpFairy({ open, onClose }: { open: boolean; onClose: () => voi
     }
   }, [currentStepIndex, getStepElement]);
 
+  // Reward opening the guide and reaching each tour step (fire-once each).
+  useEffect(() => {
+    if (!open) return;
+    celebrate(awardOnce("help_opened", "help"));
+    const step = TOUR_STEPS[currentStepIndex];
+    if (step) celebrate(awardOnce("tour_step", `tour:${step.id}`));
+  }, [open, currentStepIndex]);
+
   // Handle navigation
   const handleNext = useCallback(() => {
     const nextIdx = findNextValidIndex(currentStepIndex + 1, 1);
     if (nextIdx !== null) {
       setCurrentStepIndex(nextIdx);
     } else {
+      // Reached the end of the tour → completion reward.
+      celebrate(awardOnce("tour_completed", "tour:done"));
       onClose();
     }
   }, [currentStepIndex, findNextValidIndex, onClose]);

@@ -86,6 +86,23 @@ const xpLabels: Record<XpEvent, string> = {
   tab_visited: "First visit to a console tab",
   daily_visit: "First console open each day",
   easter_egg: "Discover a hidden feat",
+  // Memory Trainer practice loop
+  memory_round_started: "Start a Memory Trainer round",
+  memory_correct: "Confirm a face the Memory suggested",
+  memory_streak_3: "Three recall hits in a row",
+  memory_round_cleared: "Finish a Memory Trainer round",
+  memory_perfect_round: "Clear a round with no misses",
+  memory_daily_practice: "First Memory Trainer round of the day",
+  // Exploring & learning the console
+  feature_first_use: "Try a console tool for the first time",
+  modal_opened: "Open a detail card for the first time",
+  cli_command: "Run a hidden terminal command",
+  wizard_asked: "Ask the Help Wizard a question",
+  synth_played: "Play the hidden keyboard",
+  tour_step: "Reach a step of the guided tour",
+  tour_completed: "Finish the guided tour",
+  rules_read: "Read the rules to the end",
+  help_opened: "Open the guided tour",
 };
 
 function formatDate(value: string) {

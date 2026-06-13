@@ -36,7 +36,24 @@ export type XpEvent =
   | "face_tagged" // photo roll: per face tagged + confirmed
   | "outreach_sent" // one-click outreach queued
   | "smart_roster_used" // recurring-event roster generated
-  | "data_fix"; // identity/data cleanup queued
+  | "data_fix" // identity/data cleanup queued
+  // --- micro: practice (repeatable, skill-gated) ---
+  | "memory_round_started"
+  | "memory_correct"
+  | "memory_streak_3"
+  | "memory_round_cleared"
+  | "memory_perfect_round"
+  | "memory_daily_practice"
+  // --- micro: discovery/learning (fire-once via awardOnce) ---
+  | "feature_first_use"
+  | "modal_opened"
+  | "cli_command"
+  | "wizard_asked"
+  | "synth_played"
+  | "tour_step"
+  | "tour_completed"
+  | "rules_read"
+  | "help_opened";
 
 export const XP_VALUES: Record<XpEvent, number> = {
   checkin: 10,
@@ -54,6 +71,23 @@ export const XP_VALUES: Record<XpEvent, number> = {
   outreach_sent: 30,
   smart_roster_used: 15,
   data_fix: 20,
+  // micro: practice
+  memory_round_started: 2,
+  memory_correct: 3,
+  memory_streak_3: 10,
+  memory_round_cleared: 15,
+  memory_perfect_round: 25,
+  memory_daily_practice: 10,
+  // micro: discovery/learning
+  feature_first_use: 3,
+  modal_opened: 1,
+  cli_command: 2,
+  wizard_asked: 2,
+  synth_played: 1,
+  tour_step: 2,
+  tour_completed: 20,
+  rules_read: 5,
+  help_opened: 1,
 };
 
 // ---------------------------------------------------------------------------
@@ -99,6 +133,8 @@ export interface ProgressState {
   lastVisitDay: string; // YYYY-MM-DD
   visitStreak: number;
   tabsVisited: string[];
+  /** keys of fire-once discovery/learning rewards already paid out */
+  seen: string[];
 }
 
 const STORAGE_KEY = "nj-console-progress-v1";
@@ -110,6 +146,7 @@ const EMPTY: ProgressState = {
   lastVisitDay: "",
   visitStreak: 0,
   tabsVisited: [],
+  seen: [],
 };
 
 let state: ProgressState = EMPTY;
@@ -195,6 +232,11 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "list-whisperer", name: "List Whisperer", description: "Build a smart roster for a recurring event.", family: "pastor", rarity: "rare", sprite: "wizard", check: (s) => count(s, "smart_roster_used") >= 1 },
   { id: "record-straightener", name: "Record Straightener", description: "Queue your first data fix.", family: "pastor", rarity: "common", sprite: "smart_guy", check: (s) => count(s, "data_fix") >= 1 },
   { id: "census-keeper", name: "Keeper of the Census", description: "Queue 10 data fixes — the Book is accurate because of you.", family: "pastor", rarity: "epic", sprite: "mentor", check: (s) => count(s, "data_fix") >= 10 },
+  // --- learning & practice (micro-XP payoffs) ---
+  { id: "explorer", name: "Curious Hands", description: "Try five different tools in the console.", family: "pastor", rarity: "common", sprite: "npc", check: (s) => count(s, "feature_first_use") >= 5 },
+  { id: "scholar", name: "Read the Sacred Scrolls", description: "Finish the guided tour and read the rules.", family: "pastor", rarity: "rare", sprite: "wizard", check: (s) => count(s, "tour_completed") >= 1 && count(s, "rules_read") >= 1 },
+  { id: "memory-adept", name: "Knows Them by Heart", description: "Name 50 faces in the Memory Trainer.", family: "pastor", rarity: "rare", sprite: "mentor", check: (s) => count(s, "memory_correct") >= 50 },
+  { id: "memory-perfect", name: "Flawless Recall", description: "Clear a Memory Trainer round with no misses.", family: "pastor", rarity: "epic", secret: true, sprite: "spirit", check: (s) => count(s, "memory_perfect_round") >= 1 },
   // --- easter eggs (secret pastor feats; unlocked via unlockEgg) ---
   { id: "egg-konami", name: "The Old Code", description: "↑↑↓↓←→←→BA — some scrolls never expire.", family: "pastor", rarity: "legendary", secret: true, sprite: "wizard", check: (s) => !!s.unlocked["egg-konami"] },
   { id: "egg-mascot", name: "Poke the Adventurer", description: "Click the mascot seven times. They noticed.", family: "pastor", rarity: "rare", secret: true, sprite: "adventurer", check: (s) => !!s.unlocked["egg-mascot"] },
@@ -244,6 +286,29 @@ export function award(event: XpEvent, amount = 1): AwardOutcome {
     counts: { ...prev.counts, [event]: (prev.counts[event] || 0) + Math.max(1, amount) },
     unlocked: { ...prev.unlocked },
     tabsVisited: [...prev.tabsVisited],
+  };
+  const newAchievements = evaluate(prev, next);
+  const rank = rankForXp(next.xp);
+  save(next);
+  return { xpGained, xp: next.xp, leveledUp: rank.level > before.level, rank, newAchievements };
+}
+
+/**
+ * Fire-once XP for discovery/learning. Deduped by `key` via state.seen, so the
+ * same surface only ever pays out once. Returns null (silent) if already seen.
+ */
+export function awardOnce(event: XpEvent, key: string): AwardOutcome | null {
+  const prev = load();
+  if (prev.seen.includes(key)) return null;
+  const before = rankForXp(prev.xp);
+  const xpGained = XP_VALUES[event];
+  const next: ProgressState = {
+    ...prev,
+    xp: prev.xp + xpGained,
+    counts: { ...prev.counts, [event]: (prev.counts[event] || 0) + 1 },
+    unlocked: { ...prev.unlocked },
+    tabsVisited: [...prev.tabsVisited],
+    seen: [...prev.seen, key],
   };
   const newAchievements = evaluate(prev, next);
   const rank = rankForXp(next.xp);
