@@ -337,11 +337,13 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
         />
         <Dialog open={partyOpen} onOpenChange={setPartyOpen}>
           <DialogContent
-            className="h-[92dvh] w-[min(96vw,1280px)] max-w-none overflow-y-auto rounded-none border-white/15 bg-[#070710]/97 p-5 text-white backdrop-blur-xl md:p-8"
+            className="flex h-[92dvh] max-h-[92dvh] w-[min(96vw,1280px)] max-w-none flex-col gap-0 overflow-hidden rounded-none border-white/15 bg-[#070710]/97 p-0 text-white backdrop-blur-xl"
             aria-describedby={undefined}
           >
             <DialogTitle className="sr-only">Your Party</DialogTitle>
-            <PartyPanel />
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 md:p-8">
+              <PartyPanel />
+            </div>
           </DialogContent>
         </Dialog>
         <ProgressHud onKonami={handleKonami} onEarlyBird={handleEarlyBird} onNightOwl={handleNightOwl} />

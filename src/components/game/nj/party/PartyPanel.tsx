@@ -26,6 +26,7 @@ import {
   type DirectoryPerson,
   type PartyMember,
 } from "@/lib/partyData";
+import { NJ_PROFILE } from "@/lib/njData";
 import { cn } from "@/lib/utils";
 import { firstFreeSprite, SPRITE_CATALOG, spriteSrc, type SpriteEntry } from "./partySprites";
 import { PartyViews } from "./PartyViews";
@@ -734,11 +735,45 @@ function AddMemberDialog({
   );
 }
 
+// The community's pastors are always shown as the standing leadership tier
+// (top of the org chart) even before any staff are added. They are synthetic,
+// non-removable members derived from the church profile.
+const PASTOR_SPRITES: Record<string, [string, string]> = {
+  "Lead Pastor": ["mentor", "mentor_full_power"],
+  "Associate Pastor": ["wizard", "wizard_talking"],
+  "Next Gen Pastor": ["adventurer", "adventurer_victory"],
+};
+const PASTOR_MEMBERS: PartyMember[] = NJ_PROFILE.pastors.map((p, i) => {
+  const [family, pose] = PASTOR_SPRITES[p.role] ?? ["mentor", "mentor_idle"];
+  return {
+    id: `pastor-${i}`,
+    name: p.name,
+    role: p.role,
+    supervisor: "",
+    ministry: "Leadership",
+    spriteFamily: family,
+    spritePose: pose,
+    accessLevel: "Full Access",
+    inDirectory: true,
+    notes: "",
+    addedAt: "",
+  };
+});
+
 export function PartyPanel() {
   const [members, setMembers] = useState<PartyMember[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+
+  // Pastors (leadership) shown in the team views alongside the added staff, so
+  // the roster/ministry/org-chart always include the leadership the header
+  // lists. The remove-able RosterStrip below still operates on staff only.
+  const teamWithLeadership = useMemo<PartyMember[]>(() => {
+    const staffNames = new Set(members.map((m) => m.name.toLowerCase()));
+    const pastors = PASTOR_MEMBERS.filter((p) => !staffNames.has(p.name.toLowerCase()));
+    return [...pastors, ...members];
+  }, [members]);
 
   const refreshParty = useCallback(async (showSkeleton = false) => {
     if (showSkeleton) {
@@ -858,7 +893,7 @@ export function PartyPanel() {
           </div>
         ) : null}
 
-        {!initialLoading ? <PartyViews members={members} /> : null}
+        {!initialLoading ? <PartyViews members={teamWithLeadership} /> : null}
       </div>
     </section>
   );
