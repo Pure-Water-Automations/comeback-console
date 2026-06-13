@@ -180,3 +180,42 @@ export const removePartyMember = createServerFn({ method: "POST" })
       return { ok: false, message: err instanceof Error ? err.message : String(err) };
     }
   });
+
+/** Edit an existing party member's editable fields (title, supervisor, etc.). */
+export const updatePartyMember = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      id: string;
+      name?: string;
+      role?: string;
+      supervisor?: string;
+      ministry?: string;
+      spriteFamily?: string;
+      spritePose?: string;
+      accessLevel?: string;
+    }) => data,
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message: string }> => {
+    try {
+      const { getValues, updateValues } = await import("@/lib/server/sheets");
+      const rows = await getValues(ACTION_QUEUE_SHEET_ID, "Party Roster!A2:L500");
+      const idx = rows.findIndex((r) => (r[1] || "").trim() === data.id);
+      if (idx === -1) return { ok: false, message: "Member not found." };
+      const row = idx + 2; // A2 is sheet row 2
+      const cur = rows[idx];
+      // Columns C..I = name, role, supervisor, ministry, spriteFamily, spritePose, access
+      const next = [
+        data.name ?? cur[2] ?? "",
+        data.role ?? cur[3] ?? "",
+        data.supervisor ?? cur[4] ?? "",
+        data.ministry ?? cur[5] ?? "",
+        data.spriteFamily ?? cur[6] ?? "",
+        data.spritePose ?? cur[7] ?? "",
+        data.accessLevel ?? cur[8] ?? "",
+      ];
+      await updateValues(ACTION_QUEUE_SHEET_ID, `Party Roster!C${row}:I${row}`, [next]);
+      return { ok: true, message: `${next[0]} updated.` };
+    } catch (err) {
+      return { ok: false, message: err instanceof Error ? err.message : String(err) };
+    }
+  });

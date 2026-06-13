@@ -855,10 +855,13 @@ export function PartyPanel() {
         <div className="grid gap-4 md:grid-cols-3">
           <div className={cn(CARD, "p-4")}>
             <div className="mb-4 flex items-start justify-between gap-4">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">Party size</p>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/35">Team size</p>
               <UsersRound className="size-5 text-teal-100" />
             </div>
-            <p className="font-mono text-4xl font-bold text-white">{members.length}</p>
+            <p className="font-mono text-4xl font-bold text-white">{teamWithLeadership.length}</p>
+            <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-white/35">
+              {members.length} staff · {teamWithLeadership.length - members.length} leadership
+            </p>
           </div>
           <div className={cn(CARD, "p-4")}>
             <div className="mb-4 flex items-start justify-between gap-4">
@@ -866,7 +869,7 @@ export function PartyPanel() {
               <ShieldCheck className="size-5 text-cyan-100" />
             </div>
             <p className="font-mono text-4xl font-bold text-cyan-100">
-              {members.filter((member) => member.inDirectory).length}
+              {teamWithLeadership.filter((member) => member.inDirectory).length}
             </p>
           </div>
           <div className={cn(CARD, "p-4")}>
@@ -875,7 +878,7 @@ export function PartyPanel() {
               <Sparkles className="size-5 text-amber-100" />
             </div>
             <p className="font-mono text-4xl font-bold text-amber-100">
-              {Math.max(0, SPRITE_CATALOG.length - members.length)}
+              {Math.max(0, SPRITE_CATALOG.length - teamWithLeadership.length)}
             </p>
           </div>
         </div>
