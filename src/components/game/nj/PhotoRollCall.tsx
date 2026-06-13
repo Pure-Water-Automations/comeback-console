@@ -13,6 +13,7 @@ import {
 import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
+import { detectFaces, buildFaceMatcher, type FaceMemoryEntry } from "@/lib/faceApi";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md rounded-none";
@@ -86,6 +87,8 @@ function generateMockFaces(fileName: string, fileSize: number): FaceBox[] {
       type: null,
       row: null,
       isManual: false,
+      descriptor: null,
+      recognitionSuggestion: null,
     });
   }
   return faces;
@@ -110,6 +113,7 @@ function upcomingSundayIndex(sundays: { date: string }[]): number {
 
 export function PhotoRollCall() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const isReduced = useReducedMotion();
   const shouldReduceMotion = typeof isReduced === "boolean" ? isReduced : false;
 
@@ -132,6 +136,8 @@ export function PhotoRollCall() {
   const [selectedCol, setSelectedCol] = useState("");
   const [loadingSundays, setLoadingSundays] = useState(true);
   const [checkingIn, setCheckingIn] = useState(false);
+  type ModelState = "idle" | "loading-models" | "detecting" | "done" | "error";
+  const [modelState, setModelState] = useState<ModelState>("idle");
 
   // Load Face Memory and Sunday Columns
   useEffect(() => {
@@ -256,7 +262,7 @@ export function PhotoRollCall() {
   }, [sundays]);
 
   // Handle Photo Selection
-  const processFile = (file: File) => {
+  const processFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please upload an image file.");
       return;
@@ -265,22 +271,72 @@ export function PhotoRollCall() {
     const url = URL.createObjectURL(file);
     setPhotoUrl(url);
     setPhotoFile({ name: file.name, size: file.size });
-
-    // Generate mock face boxes deterministically
-    const mockFaces = generateMockFaces(file.name, file.size);
-    setFaces(mockFaces);
+    setFaces([]);
     setActiveBoxId(null);
     setSearchQuery("");
+    setModelState("loading-models");
 
-    // Award XP
-    celebrate(award("photo_uploaded"));
-    toast.success("Photo loaded! Mock vision detection running.");
-  };
+    try {
+      const img = new Image();
+      img.src = url;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Image failed to load"));
+      });
+
+      setModelState("detecting");
+      const detected = await detectFaces(img);
+
+      const matcher = buildFaceMatcher(faceMemory as Record<string, FaceMemoryEntry>);
+
+      const faceBoxes: FaceBox[] = detected.map((d, i) => {
+        let recognitionSuggestion: RecognitionSuggestion | null = null;
+        if (matcher) {
+          const match = matcher.findBestMatch(new Float32Array(d.descriptor));
+          if (match.label !== "unknown") {
+            const memEntry = faceMemory[match.label];
+            recognitionSuggestion = {
+              name: match.label,
+              type: memEntry?.type ?? "",
+              row: memEntry?.row ?? 0,
+              confidence: Math.round((1 - match.distance) * 100),
+            };
+          }
+        }
+        return {
+          id: `auto-${i}-${Date.now()}`,
+          x: d.x,
+          y: d.y,
+          width: d.width,
+          name: null,
+          type: null,
+          row: null,
+          isManual: false,
+          descriptor: d.descriptor,
+          recognitionSuggestion,
+        };
+      });
+
+      setFaces(faceBoxes);
+      setModelState("done");
+      celebrate(award("photo_uploaded"));
+      const count = detected.length;
+      if (count > 0) {
+        toast.success(`${count} face${count > 1 ? "s" : ""} detected!`);
+      } else {
+        toast.info("No faces detected — click anywhere on the photo to add faces manually.");
+      }
+    } catch (err) {
+      console.error("Face detection failed:", err);
+      setModelState("error");
+      toast.error("Vision models unavailable — add faces manually.");
+    }
+  }, [faceMemory]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      processFile(file);
+      void processFile(file);
     }
   };
 
@@ -299,7 +355,7 @@ export function PhotoRollCall() {
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      processFile(file);
+      void processFile(file);
     }
   };
 
@@ -325,6 +381,8 @@ export function PhotoRollCall() {
       type: null,
       row: null,
       isManual: true,
+      descriptor: null,
+      recognitionSuggestion: null,
     };
 
     setFaces((prev) => [...prev, newBox]);
@@ -388,6 +446,7 @@ export function PhotoRollCall() {
     setFaces([]);
     setActiveBoxId(null);
     setSearchQuery("");
+    setModelState("idle");
   };
 
   // Run sheet check-in
@@ -508,6 +567,7 @@ export function PhotoRollCall() {
                   onClick={handlePhotoClick}
                 >
                   <img
+                    ref={imgRef}
                     src={photoUrl}
                     alt="Roll Call Preview"
                     className="w-full h-auto block"
