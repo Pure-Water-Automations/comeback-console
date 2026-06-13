@@ -33,3 +33,6 @@ dist-ssr
 
 # env
 .env
+
+# Face API models
+public/models/
