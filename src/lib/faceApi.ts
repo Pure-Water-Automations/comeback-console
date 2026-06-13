@@ -43,3 +43,24 @@ export async function detectFaces(img: HTMLImageElement): Promise<DetectedFace[]
     };
   });
 }
+
+export interface FaceMemoryEntry {
+  count: number;
+  row: number;
+  type: string;
+  descriptors?: number[][];
+}
+
+export function buildFaceMatcher(
+  memory: Record<string, FaceMemoryEntry>
+): faceapi.FaceMatcher | null {
+  const labeled = Object.entries(memory)
+    .filter(([, val]) => val.descriptors && val.descriptors.length > 0)
+    .map(([name, val]) => {
+      const floatDescriptors = val.descriptors!.map((d) => new Float32Array(d));
+      return new faceapi.LabeledFaceDescriptors(name, floatDescriptors);
+    });
+
+  if (labeled.length === 0) return null;
+  return new faceapi.FaceMatcher(labeled, 0.5);
+}
