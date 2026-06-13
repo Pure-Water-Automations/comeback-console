@@ -1,80 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { X, ChevronRight, Sparkles } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import spiritGlowImg from "@/assets/sprites/spirit/spirit_glow.png";
-import spiritWaveImg from "@/assets/sprites/spirit/spirit_wave.png";
+import naviImg from "@/assets/sprites/spirit/navi.gif";
+import naviHeySfx from "@/assets/audio/navi-hey.mp3";
 
-// Lazy WebAudio AudioContext
-let audioContext: AudioContext | null = null;
+// Navi's "Hey! Listen!" chime — played on the help gesture and each step arrival.
+let naviAudio: HTMLAudioElement | null = null;
 
-function getAudioContext() {
-  if (typeof window === "undefined") return null;
-  const AudioCtor =
-    window.AudioContext ??
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioCtor) return null;
+function playNaviHey() {
+  if (typeof window === "undefined") return;
   try {
-    audioContext ??= new AudioCtor();
-    if (audioContext.state === "suspended") {
-      void audioContext.resume();
-    }
+    naviAudio ??= new Audio(naviHeySfx);
+    // Clone so rapid step-throughs can overlap instead of cutting off.
+    const clip = naviAudio.cloneNode(true) as HTMLAudioElement;
+    clip.volume = 0.5;
+    void clip.play().catch(() => {});
   } catch {
-    return null;
+    // Ignore autoplay policy blocks
   }
-  return audioContext;
-}
-
-function playTone(
-  frequency: number,
-  start: number,
-  duration: number,
-  gainValue = 0.015,
-  type: OscillatorType = "sine",
-) {
-  const ctx = getAudioContext();
-  if (!ctx) return;
-  try {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(frequency, ctx.currentTime + start);
-    gain.gain.setValueAtTime(gainValue, ctx.currentTime + start);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(ctx.currentTime + start);
-    osc.stop(ctx.currentTime + start + duration);
-  } catch {
-    // Ignore audio policy blocks
-  }
-}
-
-function playPopSound() {
-  const ctx = getAudioContext();
-  if (!ctx) return;
-  try {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(320, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.1);
-    gain.gain.setValueAtTime(0.03, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.1);
-  } catch {
-    void 0;
-  }
-}
-
-function playSparkleSound() {
-  // Sparkle arpeggio (E5, G5, C6)
-  const notes = [659.25, 783.99, 1046.5];
-  notes.forEach((freq, idx) => {
-    playTone(freq, idx * 0.08, 0.22, 0.012, "triangle");
-  });
 }
 
 interface TourStep {
@@ -124,7 +67,6 @@ export function HelpFairy({ open, onClose }: { open: boolean; onClose: () => voi
   const reducedMotion = useReducedMotion();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const [sprite, setSprite] = useState(spiritGlowImg);
   const [firstRender, setFirstRender] = useState(true);
 
   // Helper to retrieve real DOM element for current step
@@ -216,20 +158,13 @@ export function HelpFairy({ open, onClose }: { open: boolean; onClose: () => voi
         onClose();
         return;
       }
-      playPopSound();
       setFirstRender(false);
     }
 
-    // Play sparkle sound when step arrives
+    // Navi's "Hey! Listen!" chime when the fairy arrives at a step.
     const soundTimer = setTimeout(() => {
-      playSparkleSound();
+      playNaviHey();
     }, 80);
-
-    // Wave sprite effect when arriving
-    setSprite(spiritWaveImg);
-    const spriteTimer = setTimeout(() => {
-      setSprite(spiritGlowImg);
-    }, 900);
 
     updateRect();
     window.addEventListener("scroll", updateRect, { passive: true });
@@ -247,7 +182,6 @@ export function HelpFairy({ open, onClose }: { open: boolean; onClose: () => voi
           window.removeEventListener("scroll", updateRect);
           window.removeEventListener("resize", updateRect);
           clearTimeout(soundTimer);
-          clearTimeout(spriteTimer);
           clearTimeout(measureTimer);
         };
       }
@@ -257,7 +191,6 @@ export function HelpFairy({ open, onClose }: { open: boolean; onClose: () => voi
       window.removeEventListener("scroll", updateRect);
       window.removeEventListener("resize", updateRect);
       clearTimeout(soundTimer);
-      clearTimeout(spriteTimer);
     };
   }, [
     open,
@@ -421,9 +354,9 @@ export function HelpFairy({ open, onClose }: { open: boolean; onClose: () => voi
             <Sparkles className="absolute text-cyan-300 size-4 opacity-30 animate-pulse" />
           </div>
           <img
-            src={sprite}
+            src={naviImg}
             alt="Help Fairy"
-            className="w-16 h-16 object-contain [image-rendering:pixelated] drop-shadow-[0_0_12px_rgba(34,211,238,0.6)]"
+            className="w-20 h-20 object-contain drop-shadow-[0_0_14px_rgba(34,211,238,0.7)]"
           />
         </motion.div>
 
