@@ -64,3 +64,14 @@ export function buildFaceMatcher(
   if (labeled.length === 0) return null;
   return new faceapi.FaceMatcher(labeled, 0.5);
 }
+
+export async function computeDescriptorFromCanvas(
+  canvas: HTMLCanvasElement
+): Promise<number[] | null> {
+  await loadModels();
+  const result = await faceapi
+    .detectSingleFace(canvas, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+    .withFaceLandmarks()
+    .withFaceDescriptor();
+  return result ? Array.from(result.descriptor) : null;
+}

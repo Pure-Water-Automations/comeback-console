@@ -13,7 +13,7 @@ import {
 import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
-import { detectFaces, buildFaceMatcher, loadModels, type FaceMemoryEntry } from "@/lib/faceApi";
+import { detectFaces, buildFaceMatcher, loadModels, computeDescriptorFromCanvas, type FaceMemoryEntry } from "@/lib/faceApi";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md rounded-none";
@@ -392,30 +392,55 @@ export function PhotoRollCall() {
   };
 
   // Confirm tag selection
-  const handleConfirmTag = (boxId: string, person: { name: string; type: string; row: number }) => {
+  const handleConfirmTag = async (
+    boxId: string,
+    person: { name: string; type: string; row: number }
+  ) => {
+    const box = faces.find((f) => f.id === boxId);
+    if (!box) return;
+
+    // Resolve descriptor: use pre-computed one (auto-detected box), or derive from crop (manual box)
+    let descriptor = box.descriptor;
+    if (!descriptor && imgRef.current) {
+      const img = imgRef.current;
+      const canvas = document.createElement("canvas");
+      const pxW = (box.width / 100) * img.naturalWidth;
+      const pxH = pxW;
+      const pxX = (box.x / 100) * img.naturalWidth;
+      const pxY = (box.y / 100) * img.naturalHeight;
+      canvas.width = pxW;
+      canvas.height = pxH;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(img, pxX, pxY, pxW, pxH, 0, 0, pxW, pxH);
+        descriptor = await computeDescriptorFromCanvas(canvas);
+      }
+    }
+
+    // Update face boxes state
     setFaces((prev) =>
-      prev.map((box) =>
-        box.id === boxId
-          ? {
-              ...box,
-              name: person.name,
-              type: person.type,
-              row: person.row,
-            }
-          : box
+      prev.map((f) =>
+        f.id === boxId
+          ? { ...f, name: person.name, type: person.type, row: person.row }
+          : f
       )
     );
 
-    // Save/update Face Memory
+    // Save to Face Memory including descriptor
     setFaceMemory((current) => {
       const prevEntry = current[person.name];
-      const newCount = (prevEntry?.count ?? 0) + 1;
-      const nextMemory = {
+      const prevDescriptors = prevEntry?.descriptors ?? [];
+      const nextDescriptors = descriptor
+        ? [...prevDescriptors, descriptor]
+        : prevDescriptors;
+
+      const nextMemory: Record<string, FaceMemoryValue> = {
         ...current,
         [person.name]: {
-          count: newCount,
+          count: (prevEntry?.count ?? 0) + 1,
           row: person.row,
           type: person.type,
+          descriptors: nextDescriptors,
         },
       };
       try {
@@ -426,7 +451,6 @@ export function PhotoRollCall() {
       return nextMemory;
     });
 
-    // Celebrate and close
     celebrate(award("face_tagged"));
     setActiveBoxId(null);
     setSearchQuery("");
@@ -687,7 +711,7 @@ export function PhotoRollCall() {
                                   type="button"
                                   className="mt-1.5 w-full bg-teal-500 hover:bg-teal-600 text-black text-[9px] font-bold py-1 uppercase tracking-wider transition rounded-none"
                                   onClick={() => {
-                                    handleConfirmTag(box.id, {
+                                    void handleConfirmTag(box.id, {
                                       name: suggestion.name,
                                       type: suggestion.type,
                                       row: suggestion.row,
@@ -725,7 +749,7 @@ export function PhotoRollCall() {
                                     key={person.row}
                                     type="button"
                                     className="flex w-full items-center justify-between px-2 py-1.5 text-left text-xs bg-white/[0.03] hover:bg-white/[0.08] transition border border-transparent hover:border-white/10 rounded-none"
-                                    onClick={() => handleConfirmTag(box.id, person)}
+                                    onClick={() => void handleConfirmTag(box.id, person)}
                                   >
                                     <span className="truncate pr-2">{person.name}</span>
                                     <span
