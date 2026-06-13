@@ -13,7 +13,7 @@ import {
 import { award } from "@/lib/progression";
 import { cn } from "@/lib/utils";
 import { celebrate } from "./ProgressHud";
-import { detectFaces, buildFaceMatcher, type FaceMemoryEntry } from "@/lib/faceApi";
+import { detectFaces, buildFaceMatcher, loadModels, type FaceMemoryEntry } from "@/lib/faceApi";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md rounded-none";
@@ -284,6 +284,7 @@ export function PhotoRollCall() {
         img.onerror = () => reject(new Error("Image failed to load"));
       });
 
+      await loadModels();
       setModelState("detecting");
       const detected = await detectFaces(img);
 
