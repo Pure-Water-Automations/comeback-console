@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, Search, ShieldCheck, Sparkles, UserPlus, UsersRound, X } from "lucide-react";
+import { Loader2, Pencil, Plus, Search, ShieldCheck, Sparkles, UserPlus, UsersRound, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -23,6 +23,7 @@ import {
   PARTY_SUPERVISORS_SEED,
   removePartyMember,
   searchDirectory,
+  updatePartyMember,
   type DirectoryPerson,
   type PartyMember,
 } from "@/lib/partyData";
@@ -125,10 +126,12 @@ function RosterStrip({
   members,
   pendingRemoveId,
   onRemove,
+  onEdit,
 }: {
   members: PartyMember[];
   pendingRemoveId: string | null;
   onRemove: (member: PartyMember) => void;
+  onEdit: (member: PartyMember) => void;
 }) {
   if (!members.length) return <EmptyRoster />;
 
@@ -172,15 +175,26 @@ function RosterStrip({
                   {member.role || "Staff"} / {member.ministry || "Ministry"}
                 </p>
               </div>
-              <button
-                type="button"
-                className="grid h-8 w-8 shrink-0 place-items-center border border-white/10 bg-white/[0.035] text-white/45 transition hover:border-red-200/35 hover:bg-red-950/25 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-45"
-                onClick={() => onRemove(member)}
-                disabled={Boolean(pendingRemoveId)}
-                aria-label={`Remove ${member.name}`}
-              >
-                {removing ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
-              </button>
+              <div className="flex shrink-0 flex-col gap-1.5">
+                <button
+                  type="button"
+                  className="grid h-8 w-8 place-items-center border border-white/10 bg-white/[0.035] text-white/45 transition hover:border-teal-100/35 hover:bg-teal-300/10 hover:text-teal-100 disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={() => onEdit(member)}
+                  disabled={Boolean(pendingRemoveId)}
+                  aria-label={`Edit ${member.name}`}
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="grid h-8 w-8 place-items-center border border-white/10 bg-white/[0.035] text-white/45 transition hover:border-red-200/35 hover:bg-red-950/25 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-45"
+                  onClick={() => onRemove(member)}
+                  disabled={Boolean(pendingRemoveId)}
+                  aria-label={`Remove ${member.name}`}
+                >
+                  {removing ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+                </button>
+              </div>
             </div>
           );
         })}
@@ -735,6 +749,240 @@ function AddMemberDialog({
   );
 }
 
+function EditMemberDialog({
+  member,
+  members,
+  onClose,
+  onRefresh,
+}: {
+  member: PartyMember | null;
+  members: PartyMember[];
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const supervisorOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [
+            member?.supervisor ?? "",
+            DEFAULT_SUPERVISOR,
+            ...PARTY_SUPERVISORS_SEED,
+            ...members.map((m) => m.name).filter(Boolean),
+          ].filter(Boolean),
+        ),
+      ).filter((name) => name !== member?.name),
+    [members, member?.name, member?.supervisor],
+  );
+
+  const ministryIsCommon = (value: string): value is (typeof COMMON_MINISTRIES)[number] =>
+    (COMMON_MINISTRIES as readonly string[]).includes(value);
+
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("");
+  const [supervisor, setSupervisor] = useState(DEFAULT_SUPERVISOR);
+  const [ministry, setMinistry] = useState<(typeof COMMON_MINISTRIES)[number]>(DEFAULT_MINISTRY);
+  const [otherMinistry, setOtherMinistry] = useState("");
+  const [accessLevel, setAccessLevel] = useState<(typeof ACCESS_LEVELS)[number]>(DEFAULT_ACCESS);
+  const [selectedSpriteId, setSelectedSpriteId] = useState("");
+  const [pending, setPending] = useState(false);
+
+  // Hydrate the form from the member whenever a new one is opened for editing.
+  useEffect(() => {
+    if (!member) return;
+    setName(member.name);
+    setRole(member.role);
+    setSupervisor(member.supervisor || (supervisorOptions[0] ?? DEFAULT_SUPERVISOR));
+    if (member.ministry && ministryIsCommon(member.ministry)) {
+      setMinistry(member.ministry);
+      setOtherMinistry("");
+    } else {
+      setMinistry("Other");
+      setOtherMinistry(member.ministry ?? "");
+    }
+    const access = (ACCESS_LEVELS as readonly string[]).includes(member.accessLevel)
+      ? (member.accessLevel as (typeof ACCESS_LEVELS)[number])
+      : DEFAULT_ACCESS;
+    setAccessLevel(access);
+    setSelectedSpriteId(`${member.spriteFamily}:${member.spritePose}`);
+    setPending(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member?.id]);
+
+  const selectedSprite = useMemo(
+    () => SPRITE_CATALOG.find((sprite) => sprite.id === selectedSpriteId) ?? null,
+    [selectedSpriteId],
+  );
+  const ministryForSubmit = ministry === "Other" ? otherMinistry.trim() || "Other" : ministry;
+  const canSubmit =
+    !pending && name.trim().length > 0 && role.trim().length > 0 && supervisor.trim().length > 0;
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!member || !canSubmit) return;
+    setPending(true);
+    try {
+      const res = await updatePartyMember({
+        data: {
+          id: member.id,
+          name: name.trim(),
+          role: role.trim(),
+          supervisor: supervisor.trim(),
+          ministry: ministryForSubmit,
+          spriteFamily: selectedSprite?.family ?? member.spriteFamily,
+          spritePose: selectedSprite?.pose ?? member.spritePose,
+          accessLevel,
+        },
+      });
+      if (res.ok) {
+        toast.success(res.message);
+        onClose();
+        await onRefresh();
+      } else {
+        toast.error(res.message);
+      }
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Dialog open={Boolean(member)} onOpenChange={(next) => (!next ? onClose() : undefined)}>
+      <DialogContent className={cn(DIALOG_CONTENT, "w-[calc(100vw-1rem)] max-w-4xl")}>
+        <DialogHeader className="pr-8 text-left">
+          <DialogTitle className="text-2xl font-bold uppercase tracking-[0.24em] text-white">Edit member</DialogTitle>
+          <DialogDescription className="text-[10px] uppercase leading-5 tracking-[0.24em] text-white/40">
+            Update title, structure, access, and sprite for this staffer.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form className="grid gap-4" onSubmit={handleSubmit}>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block">
+              <FieldLabel>Name</FieldLabel>
+              <input
+                className={darkInputClass()}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="First Last"
+                disabled={pending}
+                required
+              />
+            </label>
+
+            <label className="block">
+              <FieldLabel>Role / Title</FieldLabel>
+              <input
+                className={darkInputClass()}
+                value={role}
+                onChange={(event) => setRole(event.target.value)}
+                placeholder="Youth coordinator"
+                disabled={pending}
+                required
+              />
+            </label>
+
+            <label className="block">
+              <FieldLabel>Supervisor</FieldLabel>
+              <Select value={supervisor} onValueChange={setSupervisor} disabled={pending}>
+                <SelectTrigger className={darkSelectTriggerClass()}>
+                  <SelectValue placeholder="Select supervisor" />
+                </SelectTrigger>
+                <SelectContent className={darkSelectContentClass()}>
+                  {supervisorOptions.map((option) => (
+                    <SelectItem key={option} value={option} className={darkSelectItemClass()}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="block">
+              <FieldLabel>Ministry</FieldLabel>
+              <Select
+                value={ministry}
+                onValueChange={(value) => setMinistry(value as (typeof COMMON_MINISTRIES)[number])}
+                disabled={pending}
+              >
+                <SelectTrigger className={darkSelectTriggerClass()}>
+                  <SelectValue placeholder="Select ministry" />
+                </SelectTrigger>
+                <SelectContent className={darkSelectContentClass()}>
+                  {COMMON_MINISTRIES.map((option) => (
+                    <SelectItem key={option} value={option} className={darkSelectItemClass()}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+
+            <label className="block">
+              <FieldLabel>Access level</FieldLabel>
+              <Select
+                value={accessLevel}
+                onValueChange={(value) => setAccessLevel(value as (typeof ACCESS_LEVELS)[number])}
+                disabled={pending}
+              >
+                <SelectTrigger className={darkSelectTriggerClass()}>
+                  <SelectValue placeholder="Select access" />
+                </SelectTrigger>
+                <SelectContent className={darkSelectContentClass()}>
+                  {ACCESS_LEVELS.map((option) => (
+                    <SelectItem key={option} value={option} className={darkSelectItemClass()}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          </div>
+
+          {ministry === "Other" ? (
+            <label className="block">
+              <FieldLabel>Other ministry</FieldLabel>
+              <input
+                className={darkInputClass()}
+                value={otherMinistry}
+                onChange={(event) => setOtherMinistry(event.target.value)}
+                placeholder="Care, media, small groups"
+                disabled={pending}
+              />
+            </label>
+          ) : null}
+
+          <SpritePicker
+            members={members}
+            onSelectSprite={(sprite) => setSelectedSpriteId(sprite.id)}
+            pending={pending}
+            selectedSpriteId={selectedSpriteId}
+          />
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              className="h-11 border border-white/10 bg-white/[0.035] px-4 text-[10px] font-bold uppercase tracking-[0.24em] text-white/50 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+              onClick={onClose}
+              disabled={pending}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex h-11 items-center justify-center gap-2 border border-teal-100/45 bg-teal-300/10 px-5 text-[10px] font-bold uppercase tracking-[0.28em] text-teal-50 transition hover:bg-teal-300/15 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!canSubmit}
+            >
+              {pending ? <Loader2 className="size-4 animate-spin" /> : <Pencil className="size-4" />}
+              Save changes
+            </button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // The community's pastors are always shown as the standing leadership tier
 // (top of the org chart) even before any staff are added. They are synthetic,
 // non-removable members derived from the church profile.
@@ -765,6 +1013,7 @@ export function PartyPanel() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [editingMember, setEditingMember] = useState<PartyMember | null>(null);
 
   // Pastors (leadership) shown in the team views alongside the added staff, so
   // the roster/ministry/org-chart always include the leadership the header
@@ -886,7 +1135,12 @@ export function PartyPanel() {
         {initialLoading ? (
           <LoadingRoster />
         ) : (
-          <RosterStrip members={members} onRemove={handleRemove} pendingRemoveId={pendingRemoveId} />
+          <RosterStrip
+            members={members}
+            onEdit={setEditingMember}
+            onRemove={handleRemove}
+            pendingRemoveId={pendingRemoveId}
+          />
         )}
 
         {refreshing && !initialLoading ? (
@@ -898,6 +1152,13 @@ export function PartyPanel() {
 
         {!initialLoading ? <PartyViews members={teamWithLeadership} /> : null}
       </div>
+
+      <EditMemberDialog
+        member={editingMember}
+        members={members}
+        onClose={() => setEditingMember(null)}
+        onRefresh={() => refreshParty(false)}
+      />
     </section>
   );
 }
