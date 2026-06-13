@@ -21,21 +21,31 @@ const CONTROL =
 const ACTION_BUTTON =
   "inline-flex h-11 items-center justify-center gap-2 border border-teal-200/30 bg-teal-300/10 px-4 text-[10px] font-bold uppercase tracking-[0.28em] text-teal-100 transition hover:bg-teal-300/15 disabled:cursor-not-allowed disabled:opacity-40 rounded-none";
 
+interface RecognitionSuggestion {
+  name: string;
+  type: string;
+  row: number;
+  confidence: number; // 0–100, computed as Math.round((1 - distance) * 100)
+}
+
 interface FaceBox {
   id: string;
-  x: number; // percentage left
-  y: number; // percentage top
-  width: number; // percentage width
+  x: number;      // percentage left
+  y: number;      // percentage top
+  width: number;  // percentage width (box is square)
   name: string | null;
   type: string | null;
   row: number | null;
   isManual: boolean;
+  descriptor: number[] | null;               // null until computed
+  recognitionSuggestion: RecognitionSuggestion | null; // null for manual boxes or no match
 }
 
 interface FaceMemoryValue {
   count: number;
   row: number;
   type: string;
+  descriptors?: number[][];  // added; absent on existing v1 entries
 }
 
 function getSeed(name: string, size: number): number {
