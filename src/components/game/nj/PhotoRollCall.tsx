@@ -567,6 +567,16 @@ export function PhotoRollCall() {
                   )}
                   onClick={handlePhotoClick}
                 >
+                  {/* Detection loading overlay */}
+                  {(modelState === "loading-models" || modelState === "detecting") && (
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
+                      <Loader2 className="size-8 animate-spin text-teal-400 mb-3" />
+                      <p className="text-xs font-bold uppercase tracking-widest text-teal-100">
+                        {modelState === "loading-models" ? "Loading vision models…" : "Scanning for faces…"}
+                      </p>
+                    </div>
+                  )}
+
                   <img
                     ref={imgRef}
                     src={photoUrl}
@@ -745,6 +755,15 @@ export function PhotoRollCall() {
                       </div>
                     );
                   })}
+
+                  {/* No-faces-detected message */}
+                  {modelState === "done" && faces.length === 0 && (
+                    <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none">
+                      <p className="bg-black/80 border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-widest text-white/50">
+                        No faces detected — click to add manually
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
