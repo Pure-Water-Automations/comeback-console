@@ -49,51 +49,6 @@ interface FaceMemoryValue {
   descriptors?: number[][];  // added; absent on existing v1 entries
 }
 
-function getSeed(name: string, size: number): number {
-  let hash = 0;
-  const str = `${name}-${size}`;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash);
-}
-
-function createRandom(seed: number) {
-  let s = seed;
-  return function () {
-    s = (s * 9301 + 49297) % 233280;
-    return s / 233280;
-  };
-}
-
-function generateMockFaces(fileName: string, fileSize: number): FaceBox[] {
-  const seed = getSeed(fileName, fileSize);
-  const rng = createRandom(seed);
-  const numFaces = Math.floor(rng() * 3) + 3; // 3, 4, or 5 faces
-
-  const faces: FaceBox[] = [];
-  for (let i = 0; i < numFaces; i++) {
-    // Generate x, y in range [10, 75] percent to keep boxes safely inside the image boundaries
-    const x = Math.floor(rng() * 65) + 10;
-    const y = Math.floor(rng() * 65) + 10;
-    // Box width: 12% to 18%
-    const width = Math.floor(rng() * 6) + 12;
-    faces.push({
-      id: `auto-${i}-${seed}`,
-      x,
-      y,
-      width,
-      name: null,
-      type: null,
-      row: null,
-      isManual: false,
-      descriptor: null,
-      recognitionSuggestion: null,
-    });
-  }
-  return faces;
-}
-
 function upcomingSundayIndex(sundays: { date: string }[]): number {
   let year = 2025;
   let prevMonth = 0;
@@ -228,30 +183,6 @@ export function PhotoRollCall() {
   const numKnownFaces = useMemo(() => {
     return Object.keys(faceMemory).length;
   }, [faceMemory]);
-
-  // Get current tag suggestions for popover
-  const suggestion = useMemo(() => {
-    const entries = Object.entries(faceMemory);
-    if (entries.length === 0) return null;
-
-    // Filter out people who are already tagged in the current image
-    const taggedNames = faces
-      .map((f) => f.name)
-      .filter((name): name is string => name !== null);
-
-    const sorted = entries
-      .map(([name, val]) => ({
-        name,
-        count: val.count,
-        row: val.row,
-        type: val.type,
-        confidence: Math.min(50 + val.count * 10, 98),
-      }))
-      .filter((item) => !taggedNames.includes(item.name))
-      .sort((a, b) => b.count - a.count);
-
-    return sorted[0] || null;
-  }, [faceMemory, faces]);
 
   // Filter visible Sundays
   const visibleSundays = useMemo(() => {
@@ -530,7 +461,7 @@ export function PhotoRollCall() {
         <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.4em] text-teal-100">
-              BETA · COMPUTER VISION MOCK
+              BETA · COMPUTER VISION
             </p>
             <h3 className="mt-2 text-3xl font-bold uppercase tracking-[-0.03em] text-white md:text-5xl">
               PHOTO ROLL CALL
@@ -696,25 +627,25 @@ export function PhotoRollCall() {
                             </div>
 
                             {/* One-Click Face Memory Suggestion */}
-                            {!isConfirmed && suggestion && (
+                            {!isConfirmed && box.recognitionSuggestion && (
                               <div className="mb-2.5 border border-teal-500/25 bg-teal-950/30 p-2 rounded-none">
                                 <p className="text-[9px] text-teal-400/70 uppercase tracking-widest">
                                   Suggested Tag
                                 </p>
                                 <p className="mt-0.5 text-xs font-bold text-white">
-                                  {suggestion.name}
+                                  {box.recognitionSuggestion.name}
                                 </p>
                                 <p className="text-[9px] text-teal-300/70">
-                                  Confidence: {suggestion.confidence}%
+                                  Confidence: {box.recognitionSuggestion.confidence}%
                                 </p>
                                 <button
                                   type="button"
                                   className="mt-1.5 w-full bg-teal-500 hover:bg-teal-600 text-black text-[9px] font-bold py-1 uppercase tracking-wider transition rounded-none"
                                   onClick={() => {
                                     void handleConfirmTag(box.id, {
-                                      name: suggestion.name,
-                                      type: suggestion.type,
-                                      row: suggestion.row,
+                                      name: box.recognitionSuggestion!.name,
+                                      type: box.recognitionSuggestion!.type,
+                                      row: box.recognitionSuggestion!.row,
                                     });
                                   }}
                                 >
@@ -825,13 +756,10 @@ export function PhotoRollCall() {
                       </div>
                     </div>
                   ))}
-                  <p className="mt-4 text-[9px] uppercase tracking-wider text-white/30 leading-normal">
-                    Fake confidence percent grows with each face tagging confirm (max 98%).
-                  </p>
                 </div>
               ) : (
                 <p className="text-xs text-white/30 italic leading-relaxed">
-                  No face signatures registered. Tag detected boxes on the photo to calibrate the mock neural processor.
+                  No face signatures registered. Tag faces on the photo to build your recognition database.
                 </p>
               )}
             </div>
