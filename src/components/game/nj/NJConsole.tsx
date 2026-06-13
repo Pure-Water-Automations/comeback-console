@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Coins,
   Heart,
+  HelpCircle,
   MapPin,
   Radar,
   ScrollText,
@@ -13,6 +14,7 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
+import { HelpFairy } from "./HelpFairy";
 import { motion, useScroll, useSpring, useTransform } from "motion/react";
 import { Toaster } from "sonner";
 
@@ -211,9 +213,7 @@ function ConsoleHeader({
       />
       <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_210px] lg:items-center">
         <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-signal">
-            New Jersey console
-          </p>
+          <p className="text-xs uppercase tracking-[0.4em] text-signal">New Jersey console</p>
           <h1 className="display mt-3 text-[17vw] uppercase text-white sm:text-[12vw] lg:text-[6.6rem]">
             {NJ_PROFILE.shortName}
           </h1>
@@ -285,6 +285,7 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
   const mascotClicksRef = useRef(0);
   const [mascotPulse, setMascotPulse] = useState(0);
   const [partyOpen, setPartyOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const handleMascotClick = useCallback(() => {
     setMascotPulse((current) => current + 1);
@@ -346,7 +347,11 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
             </div>
           </DialogContent>
         </Dialog>
-        <ProgressHud onKonami={handleKonami} onEarlyBird={handleEarlyBird} onNightOwl={handleNightOwl} />
+        <ProgressHud
+          onKonami={handleKonami}
+          onEarlyBird={handleEarlyBird}
+          onNightOwl={handleNightOwl}
+        />
 
         <Tabs
           value={activeTab}
@@ -395,6 +400,20 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Fixed Guided Tour Help Button */}
+      <button
+        type="button"
+        onClick={() => setHelpOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-cyan-500/30 bg-black/85 text-cyan-400 shadow-[0_0_16px_rgba(6,182,212,0.25)] backdrop-blur-md transition-all hover:scale-110 hover:border-cyan-400 hover:text-white hover:shadow-[0_0_24px_rgba(6,182,212,0.4)] active:scale-95 cursor-pointer"
+        title="Open Guided Tour"
+        aria-label="Open guided tour"
+      >
+        <HelpCircle className="size-5" />
+      </button>
+
+      {/* Guided Tour Help Fairy Overlay */}
+      <HelpFairy open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }
