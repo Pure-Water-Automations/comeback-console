@@ -350,6 +350,13 @@ export const addGuest = createServerFn({ method: "POST" })
       await appendValues(ACTION_QUEUE_SHEET_ID, "Guest Requests!A1:E", [
         [nowStamp(), first, (data.lastName || "").trim(), data.firstSunday, (data.notes || "").trim()],
       ]);
+      // Best-effort: also push the guest to the Ministry OS CRM so they become a
+      // real contact with a follow-up pipeline. No-ops if the integration env
+      // (MINISTRY_OS_URL / MINISTRY_OS_KEY) is unset; never blocks the capture.
+      const { pushGuestToMinistryOS } = await import("@/lib/server/ministryOS");
+      await pushGuestToMinistryOS({
+        firstName: first, lastName: data.lastName, firstSunday: data.firstSunday, notes: data.notes,
+      });
       return { ok: true, message: `${first} queued for the guest tracker.` };
     } catch (err) {
       return fail(err);
