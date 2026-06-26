@@ -214,21 +214,33 @@ export function getWizardResponse(query: string): WizardResponse {
 export const getOpenAIResponse = createServerFn({ method: "POST" })
   .inputValidator((data: { query: string }) => data)
   .handler(async ({ data }) => {
-    const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      console.warn("No OPENAI_API_KEY found in process.env. Falling back to local responder.");
+    // NIM-first: the FREE NVIDIA NIM backend (see SecondBrain/tools/nvidia-nim/AGENTS.md)
+    // when NVIDIA_API_KEY is set, then OpenAI, then the local responder. Server-side only.
+    const nimKey = process.env.NVIDIA_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
+    const providers: { name: string; url: string; key: string; model: string }[] = [];
+    if (nimKey) providers.push({
+      name: "nvidia",
+      url: (process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1").replace(/\/+$/, "") + "/chat/completions",
+      key: nimKey,
+      model: process.env.COMEBACK_NIM_MODEL || "mistralai/mistral-small-4-119b-2603",
+    });
+    if (openaiKey) providers.push({ name: "openai", url: "https://api.openai.com/v1/chat/completions", key: openaiKey, model: "gpt-4o-mini" });
+    if (!providers.length) {
+      console.warn("No NVIDIA_API_KEY/OPENAI_API_KEY found in process.env. Falling back to local responder.");
       return { success: false, answer: "" };
     }
 
-    try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    for (const prov of providers) {
+     try {
+      const response = await fetch(prov.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
+          "Authorization": `Bearer ${prov.key}`
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini", // Cost-effective and fast!
+          model: prov.model,
           messages: [
             {
               role: "system",
@@ -302,15 +314,19 @@ Answer the user's question in character using the guide.`
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("OpenAI API response error:", errorText);
-        return { success: false, answer: "" };
+        console.error(`${prov.name} API response error:`, errorText);
+        continue; // try the next provider
       }
 
       const resData = await response.json();
       const answer = resData.choices?.[0]?.message?.content || "";
-      return { success: true, answer };
-    } catch (e) {
-      console.error("Failed to fetch OpenAI completion:", e);
-      return { success: false, answer: "" };
+      if (answer) return { success: true, answer };
+      // empty answer -> try the next provider
+     } catch (e) {
+      console.error(`Failed to fetch ${prov.name} completion:`, e);
+      // try the next provider
+     }
     }
+    // all providers failed -> local responder
+    return { success: false, answer: "" };
   });
