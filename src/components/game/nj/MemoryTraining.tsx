@@ -93,7 +93,7 @@ export function MemoryTraining() {
   const [searchResults, setSearchResults] = useState<RosterPerson[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Load Face Memory once (shared with Photo Check-In)
+  // Load Face Memory once (persisted in localStorage across rounds)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(FACE_MEMORY_KEY);
@@ -419,7 +419,7 @@ export function MemoryTraining() {
                 <p className="mt-2 max-w-md text-[11px] leading-5 text-white/35 normal-case tracking-normal">
                   We group faces that look like the same person, then walk you through them
                   one at a time so you can tag who&apos;s who. Every tag teaches Face Memory and
-                  improves recognition in Photo Check-In.
+                  sharpens your recall over time.
                 </p>
                 <p className="mt-6 text-[10px] uppercase tracking-widest text-teal-400/50">
                   Photos stay on this device — POC
@@ -750,7 +750,7 @@ export function MemoryTraining() {
                 <li>1 · Drop in any group photos.</li>
                 <li>2 · We group the same face across shots.</li>
                 <li>3 · Tag each person once — it saves every sample.</li>
-                <li>4 · Photo Check-In recognizes them next time.</li>
+                <li>4 · Face Memory recognizes them next time.</li>
               </ol>
             </div>
           </div>
