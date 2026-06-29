@@ -9,7 +9,7 @@ outreach, trophies) with XP/ranks/achievements/easter eggs.
 
 | | |
 |---|---|
-| Local repo | `/Users/justinokamoto/appscript_projects/Scroll-and-Learn-Operation-COMEBACK-transparent-sprites` |
+| Local repo | `/Users/justinokamoto/code/apps/comeback-console` |
 | Stack | TanStack Start + React 19 + Tailwind v4 + motion (Lovable-generated base) |
 | VPS deploy | `/app/SecondBrain/comeback-console/current` (`comeback-console.service`, port **8794**) |
 | Public URL | https://comeback.pwasecondbrain.uk — **open, no login** (Cloudflare Access gate removed 2026-06-10; it is a test POC). Re-gate by re-running `tools/cloudflare-tunnel/expose.js comeback 8794 <emails...>`. |

@@ -51,7 +51,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { dashboardMascotFor, mentorCoachSprite } from "./sprites";
+import { dashboardSpriteFor, isLeaderArt, mentorCoachSprite } from "./sprites";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -387,7 +387,8 @@ function DashboardHeader({
   onCommunityChange,
 }: DashboardPageProps & { community: Community }) {
   const points = totalPoints(community);
-  const mascot = dashboardMascotFor(community.mascot);
+  const mascot = dashboardSpriteFor(community);
+  const mascotIsLeader = isLeaderArt(community);
   const trimesterRange = `${formatDate(TRIMESTER.start)} - ${formatDate(TRIMESTER.end, true)}`;
 
   return (
@@ -449,8 +450,11 @@ function DashboardHeader({
           </div>
           <motion.img
             src={mascot}
-            alt={`${community.shortName} mascot`}
-            className="mx-auto h-56 w-56 object-contain [image-rendering:pixelated] drop-shadow-2xl md:h-72 md:w-72"
+            alt={mascotIsLeader ? `${community.shortName} leader` : `${community.shortName} mascot`}
+            className={cn(
+              "mx-auto h-56 w-56 object-contain drop-shadow-2xl md:h-72 md:w-72",
+              !mascotIsLeader && "[image-rendering:pixelated]",
+            )}
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 0.9, repeat: Infinity }}
           />

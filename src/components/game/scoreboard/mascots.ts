@@ -1,4 +1,5 @@
 import type { Community } from "@/lib/comebackData";
+import { leaderSpriteFor } from "@/lib/leaders";
 
 import adventurerPointing from "@/assets/sprites/adventurer/adventurer_pointing.png";
 import adventurerVictory from "@/assets/sprites/adventurer/adventurer_victory.png";
@@ -56,4 +57,21 @@ export const mascotSprites = {
 
 export function mascotFor(family: MascotFamily, pose: MascotPose) {
   return mascotSprites[family][pose];
+}
+
+/**
+ * The sprite to show for a community: its real leader portrait when we have one,
+ * otherwise the generic mascot-family pose. Use this everywhere a community is
+ * represented on the scoreboard/console so leaders show up consistently.
+ */
+export function communitySprite(community: Pick<Community, "id" | "mascot">, pose: MascotPose) {
+  return leaderSpriteFor(community.id) ?? mascotFor(community.mascot, pose);
+}
+
+/**
+ * True when `communitySprite` returns smooth leader illustration art (which must
+ * NOT use pixelated image-rendering) vs a pixel-art mascot fallback.
+ */
+export function communityIsLeaderArt(community: Pick<Community, "id">) {
+  return leaderSpriteFor(community.id) !== null;
 }

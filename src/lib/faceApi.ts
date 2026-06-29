@@ -5,7 +5,7 @@ import type * as FaceApiTypes from "@vladmandic/face-api";
 export interface DetectedFace {
   x: number;      // percentage left (0-100)
   y: number;      // percentage top (0-100)
-  width: number;  // percentage width (0-100); PhotoRollCall renders boxes square off this
+  width: number;  // percentage width (0-100); the face cropper squares boxes off this
   height: number; // percentage height (0-100); true box height for accurate crops
   descriptor: number[];  // 128-dim embedding
 }

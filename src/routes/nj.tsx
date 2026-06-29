@@ -24,7 +24,7 @@ export const Route = createFileRoute("/nj")({
       {
         name: "description",
         content:
-          "A tabbed command console for New Jersey Family Church pastors tracking Operation COMEBACK finance, attendance, people, Blessing, and quest signals.",
+          "A tabbed command console for New Jersey Family Church pastors tracking Operation COMEBACK finance, attendance, people, and Blessing signals.",
       },
       { property: "og:title", content: "New Jersey Console" },
       {

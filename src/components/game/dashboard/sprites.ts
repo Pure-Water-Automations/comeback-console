@@ -1,4 +1,5 @@
 import type { Community } from "@/lib/comebackData";
+import { leaderSpriteFor } from "@/lib/leaders";
 
 import adventurerPointing from "@/assets/sprites/adventurer/adventurer_pointing.png";
 import mentorCoffee from "@/assets/sprites/mentor/mentor_coffee.png";
@@ -21,6 +22,16 @@ const dashboardMascots = {
 
 export function dashboardMascotFor(family: MascotFamily) {
   return dashboardMascots[family];
+}
+
+/** The community's real leader sprite when available, else its mascot family. */
+export function dashboardSpriteFor(community: Pick<Community, "id" | "mascot">) {
+  return leaderSpriteFor(community.id) ?? dashboardMascots[community.mascot];
+}
+
+/** True when the rendered community sprite is smooth leader art (not pixel-art). */
+export function isLeaderArt(community: Pick<Community, "id">) {
+  return leaderSpriteFor(community.id) !== null;
 }
 
 export const mentorCoachSprite = mentorCoffee;

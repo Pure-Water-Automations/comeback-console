@@ -24,7 +24,7 @@ import {
   type RankedCommunity,
 } from "@/lib/comebackData";
 import { cn } from "@/lib/utils";
-import { mascotFor } from "./mascots";
+import { communityIsLeaderArt, communitySprite } from "./mascots";
 import { AwardsRecap } from "../awards/AwardsRecap";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -369,9 +369,12 @@ function HeroHeader({ leader, communityCount }: { leader: RankedCommunity; commu
             League leader
           </p>
           <motion.img
-            src={mascotFor(leader.mascot, "hero")}
-            alt={`${leader.shortName} mascot`}
-            className="mx-auto mb-4 h-48 w-48 object-contain [image-rendering:pixelated] drop-shadow-2xl md:h-64 md:w-64"
+            src={communitySprite(leader, "hero")}
+            alt={`${leader.shortName} leader`}
+            className={cn(
+              "mx-auto mb-4 h-48 w-48 object-contain drop-shadow-2xl md:h-64 md:w-64",
+              !communityIsLeaderArt(leader) && "[image-rendering:pixelated]",
+            )}
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 0.9, repeat: Infinity }}
           />
@@ -450,9 +453,12 @@ function PodiumSection({ standings }: { standings: RankedCommunity[] }) {
                 <Medal className={cn("size-10", style.text)} />
               </div>
               <motion.img
-                src={mascotFor(slot.community.mascot, "podium")}
-                alt={`${slot.community.shortName} mascot`}
-                className="mx-auto h-40 w-40 object-contain [image-rendering:pixelated] drop-shadow-2xl md:h-52 md:w-52"
+                src={communitySprite(slot.community, "podium")}
+                alt={`${slot.community.shortName} leader`}
+                className={cn(
+                  "mx-auto h-40 w-40 object-contain drop-shadow-2xl md:h-52 md:w-52",
+                  !communityIsLeaderArt(slot.community) && "[image-rendering:pixelated]",
+                )}
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 0.9, repeat: Infinity, delay: slot.delay }}
               />
@@ -556,9 +562,12 @@ function StandingsRow({
       </span>
       <span className="flex min-w-0 items-center gap-3">
         <img
-          src={mascotFor(community.mascot, "thumb")}
-          alt={`${community.shortName} mascot`}
-          className="h-14 w-14 shrink-0 object-contain [image-rendering:pixelated] drop-shadow-2xl"
+          src={communitySprite(community, "thumb")}
+          alt={`${community.shortName} leader`}
+          className={cn(
+            "h-14 w-14 shrink-0 object-contain drop-shadow-2xl",
+            !communityIsLeaderArt(community) && "[image-rendering:pixelated]",
+          )}
           loading="lazy"
         />
         <span className="min-w-0">
@@ -808,9 +817,12 @@ function CategoryChampionsSection({ standings }: { standings: RankedCommunity[] 
               </div>
             </div>
             <motion.img
-              src={mascotFor(community.mascot, "podium")}
-              alt={`${community.shortName} mascot`}
-              className="mx-auto h-44 w-44 object-contain [image-rendering:pixelated] drop-shadow-2xl"
+              src={communitySprite(community, "podium")}
+              alt={`${community.shortName} leader`}
+              className={cn(
+                "mx-auto h-44 w-44 object-contain drop-shadow-2xl",
+                !communityIsLeaderArt(community) && "[image-rendering:pixelated]",
+              )}
               animate={{ y: [0, -10, 0] }}
               transition={{ duration: 0.9, repeat: Infinity, delay: index * 0.12 }}
             />

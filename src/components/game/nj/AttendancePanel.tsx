@@ -3,11 +3,9 @@ import {
   Activity,
   BrainCircuit,
   CalendarDays,
-  CheckCircle2,
   SignalHigh,
   TrendingDown,
   Trophy,
-  Upload,
 } from "lucide-react";
 import { motion } from "motion/react";
 import {
@@ -29,21 +27,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ATTENDANCE_2026, NJ_PROFILE, WEEKLY_SUNDAY_2026 } from "@/lib/njData";
 import { cn } from "@/lib/utils";
-import { EventLogSection } from "./EventLogSection";
 import { MemoryTraining } from "./MemoryTraining";
-import { PhotoRollCall } from "./PhotoRollCall";
-import { RollCallSection } from "./RollCallSection";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
-type AttendanceSubTabId = "roll-call" | "events" | "photo-check-in" | "train" | "trends";
+type AttendanceSubTabId = "trends" | "train";
 
 const ATTENDANCE_SUB_TABS = [
-  { id: "roll-call", label: "Roll Call", icon: CheckCircle2 },
-  { id: "events", label: "Events", icon: CalendarDays },
-  { id: "photo-check-in", label: "Photo Check-In", icon: Upload },
-  { id: "train", label: "Train", icon: BrainCircuit },
   { id: "trends", label: "Trends", icon: SignalHigh },
+  { id: "train", label: "Train", icon: BrainCircuit },
 ] satisfies Array<{
   id: AttendanceSubTabId;
   label: string;
@@ -93,7 +85,7 @@ function StatCard({
 }
 
 export function AttendancePanel() {
-  const [activeSubTab, setActiveSubTab] = useState<AttendanceSubTabId>("roll-call");
+  const [activeSubTab, setActiveSubTab] = useState<AttendanceSubTabId>("trends");
   const jan = monthByName("Jan");
   const feb = monthByName("Feb");
   const may = monthByName("May");
@@ -135,7 +127,7 @@ export function AttendancePanel() {
           onValueChange={(value) => setActiveSubTab(value as AttendanceSubTabId)}
           className="w-full"
         >
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-px rounded-none border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md sm:grid-cols-2 lg:inline-grid lg:w-auto lg:grid-cols-5">
+          <TabsList className="grid h-auto w-full grid-cols-1 gap-px rounded-none border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md sm:grid-cols-2 lg:inline-grid lg:w-auto lg:grid-cols-2">
             {ATTENDANCE_SUB_TABS.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -156,15 +148,6 @@ export function AttendancePanel() {
             })}
           </TabsList>
 
-          <TabsContent value="roll-call" className="mt-5">
-            <RollCallSection />
-          </TabsContent>
-          <TabsContent value="events" className="mt-5">
-            <EventLogSection />
-          </TabsContent>
-          <TabsContent value="photo-check-in" className="mt-5">
-            <PhotoRollCall />
-          </TabsContent>
           <TabsContent value="train" className="mt-5">
             <MemoryTraining />
           </TabsContent>

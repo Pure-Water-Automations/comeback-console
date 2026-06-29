@@ -1,8 +1,12 @@
-// Server-only Google Sheets client for the NJ console's POC write actions.
+// Server-only Google Sheets read client for the NJ console (POC).
 // Reuses the local Workspace OAuth credential (full `spreadsheets` scope) at
 // ~/.google_workspace_mcp/credentials/<email>.json — the same client the
-// google-workspace MCP uses — so the dev server can read/write the live NJ
-// workbooks with zero new dependencies. Never import this from client code.
+// google-workspace MCP uses — so the dev server can read the live NJ workbooks
+// with zero new dependencies. Never import this from client code.
+//
+// The write helpers (updateValues / batchUpdateValues / appendValues) were
+// removed alongside the migrated attendance/quest/guest/outreach actions; the
+// retained roster search and regional scoreboard read live sheets via getValues.
 
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -62,39 +66,4 @@ async function sheetsFetch(url: string, init?: RequestInit) {
 export async function getValues(spreadsheetId: string, range: string): Promise<string[][]> {
   const json = await sheetsFetch(`${BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`);
   return (json.values as string[][]) || [];
-}
-
-/** Overwrite an exact range (USER_ENTERED so dates/numbers parse like typing) */
-export async function updateValues(
-  spreadsheetId: string,
-  range: string,
-  values: (string | number)[][],
-) {
-  return sheetsFetch(
-    `${BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
-    { method: "PUT", body: JSON.stringify({ values }) },
-  );
-}
-
-/** Update several scattered ranges in one request */
-export async function batchUpdateValues(
-  spreadsheetId: string,
-  data: { range: string; values: (string | number)[][] }[],
-) {
-  return sheetsFetch(`${BASE}/${spreadsheetId}/values:batchUpdate`, {
-    method: "POST",
-    body: JSON.stringify({ valueInputOption: "USER_ENTERED", data }),
-  });
-}
-
-/** Append rows after the last data row of the given table range */
-export async function appendValues(
-  spreadsheetId: string,
-  range: string,
-  values: (string | number)[][],
-) {
-  return sheetsFetch(
-    `${BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-    { method: "POST", body: JSON.stringify({ values }) },
-  );
 }

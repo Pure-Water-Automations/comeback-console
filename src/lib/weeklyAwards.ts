@@ -17,6 +17,8 @@ import {
 
 export interface AwardWinner {
   community: string;
+  /** Community id, so the ceremony can show the real leader sprite. */
+  communityId: string;
   mascot: Community["mascot"];
   /** The headline stat for this award, pre-formatted */
   stat: string;
@@ -59,7 +61,7 @@ function peakWeek(c: Community): number {
 }
 
 function winner(c: Community, stat: string, detail?: string): AwardWinner {
-  return { community: c.shortName, mascot: c.mascot, stat, detail };
+  return { community: c.shortName, communityId: c.id, mascot: c.mascot, stat, detail };
 }
 
 // This is a REGIONAL recognition — no STRATCOM vs non-STRATCOM distinction.

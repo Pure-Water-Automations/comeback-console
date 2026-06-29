@@ -18,6 +18,7 @@ import {
   type OverviewSlide,
 } from "@/lib/weeklyAwards";
 import { fetchLiveAwards } from "@/lib/regionalScoreboard";
+import { leaderSpriteFor } from "@/lib/leaders";
 import { cn } from "@/lib/utils";
 import { AsciiFireworks } from "./AsciiFireworks";
 
@@ -667,12 +668,17 @@ function Sprite({
   color: string;
   podium?: boolean;
 }) {
+  // Prefer the community's real leader sprite; fall back to the generic mascot.
+  // Leader art is a smooth illustration, so only the pixel-art mascots get
+  // pixelated rendering.
+  const leaderSrc = leaderSpriteFor(winner.communityId);
   return (
     <motion.img
-      src={spriteByMascot[winner.mascot]}
-      alt={`${winner.community} mascot`}
+      src={leaderSrc ?? spriteByMascot[winner.mascot]}
+      alt={leaderSrc ? `${winner.community} leader` : `${winner.community} mascot`}
       className={cn(
-        "mx-auto object-contain [image-rendering:pixelated] drop-shadow-2xl",
+        "mx-auto object-contain drop-shadow-2xl",
+        !leaderSrc && "[image-rendering:pixelated]",
         podium
           ? primary
             ? "h-[min(12vh,7.75rem)] w-[min(12vh,7.75rem)]"

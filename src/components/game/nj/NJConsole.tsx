@@ -6,12 +6,9 @@ import {
   Heart,
   HelpCircle,
   MapPin,
-  Radar,
-  ScrollText,
   Sparkles,
   Trophy,
   Users,
-  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { HelpFairy } from "./HelpFairy";
@@ -21,6 +18,7 @@ import { Toaster } from "sonner";
 import adventurerSprite from "@/assets/sprites/adventurer/adventurer_victory.png";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TEAM_LABELS } from "@/lib/comebackData";
+import { leaderFor } from "@/lib/leaders";
 import { NJ_PROFILE, SNAPSHOT_DATE } from "@/lib/njData";
 import { recordDailyVisit, recordTabVisit, unlockEgg } from "@/lib/progression";
 import { cn } from "@/lib/utils";
@@ -28,12 +26,8 @@ import { AttendancePanel } from "./AttendancePanel";
 import { BlessingPanel } from "./BlessingPanel";
 import { FinancePanel } from "./FinancePanel";
 import { OverviewPanel } from "./OverviewPanel";
-import { OutreachPanel } from "./OutreachPanel";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { PartyPanel } from "./party/PartyPanel";
 import { PeoplePanel } from "./PeoplePanel";
 import { celebrate, ProgressHud } from "./ProgressHud";
-import { QuestsPanel } from "./QuestsPanel";
 import { TrophyRoom } from "./TrophyRoom";
 
 export const NJ_TAB_IDS = [
@@ -42,8 +36,6 @@ export const NJ_TAB_IDS = [
   "attendance",
   "people",
   "blessing",
-  "quests",
-  "outreach",
   "trophies",
 ] as const;
 
@@ -76,8 +68,6 @@ const TABS = [
   { id: "attendance", label: "Attendance", icon: CalendarDays },
   { id: "people", label: "People", icon: Users },
   { id: "blessing", label: "Blessing", icon: Heart },
-  { id: "quests", label: "Quests", icon: ScrollText },
-  { id: "outreach", label: "Outreach", icon: Radar },
   { id: "trophies", label: "Trophies", icon: Trophy },
 ] satisfies TabConfig[];
 
@@ -190,12 +180,13 @@ function HeaderChip({ children }: { children: ReactNode }) {
 function ConsoleHeader({
   mascotPulse,
   onMascotClick,
-  onOpenParty,
 }: {
   mascotPulse: number;
   onMascotClick: () => void;
-  onOpenParty: () => void;
 }) {
+  // The NJ console's character is its real lead pastor sprite (falls back to the
+  // generic adventurer mascot if New Jersey ever has no leader art).
+  const njLeader = leaderFor("new-jersey");
   return (
     <motion.header
       className="relative overflow-hidden border border-white/10 bg-black/60 p-5 backdrop-blur-md md:p-7"
@@ -252,7 +243,8 @@ function ConsoleHeader({
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
             onClick={onMascotClick}
-            aria-label="Adventurer mascot"
+            aria-label="New Jersey leader mascot"
+            title={njLeader?.name}
           >
             <motion.div
               key={mascotPulse}
@@ -261,20 +253,15 @@ function ConsoleHeader({
               transition={{ duration: 0.22, ease: EASE }}
             >
               <img
-                src={adventurerSprite}
-                alt=""
-                className="h-32 w-32 object-contain [image-rendering:pixelated] drop-shadow-2xl md:h-40 md:w-40"
+                src={njLeader?.sprite ?? adventurerSprite}
+                alt={njLeader ? njLeader.name : ""}
+                className={cn(
+                  "h-32 w-32 object-contain drop-shadow-2xl md:h-40 md:w-40",
+                  !njLeader && "[image-rendering:pixelated]",
+                )}
               />
             </motion.div>
           </motion.button>
-          <button
-            type="button"
-            onClick={onOpenParty}
-            className="flex w-40 items-center justify-center gap-2 border border-teal-200/35 bg-teal-300/10 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.26em] text-teal-100 shadow-[0_0_22px_rgba(45,212,191,0.18)] backdrop-blur-md transition hover:border-teal-100/60 hover:bg-teal-300/20 md:w-48"
-          >
-            <UsersRound className="size-4" />
-            Your Party
-          </button>
         </div>
       </div>
     </motion.header>
@@ -284,7 +271,6 @@ function ConsoleHeader({
 export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
   const mascotClicksRef = useRef(0);
   const [mascotPulse, setMascotPulse] = useState(0);
-  const [partyOpen, setPartyOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const handleMascotClick = useCallback(() => {
@@ -334,19 +320,7 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
         <ConsoleHeader
           mascotPulse={mascotPulse}
           onMascotClick={handleMascotClick}
-          onOpenParty={() => setPartyOpen(true)}
         />
-        <Dialog open={partyOpen} onOpenChange={setPartyOpen}>
-          <DialogContent
-            className="flex h-[92dvh] max-h-[92dvh] w-[min(96vw,1280px)] max-w-none flex-col gap-0 overflow-hidden rounded-none border-white/15 bg-[#070710]/97 p-0 text-white backdrop-blur-xl"
-            aria-describedby={undefined}
-          >
-            <DialogTitle className="sr-only">Your Party</DialogTitle>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 md:p-8">
-              <PartyPanel />
-            </div>
-          </DialogContent>
-        </Dialog>
         <ProgressHud
           onKonami={handleKonami}
           onEarlyBird={handleEarlyBird}
@@ -358,7 +332,7 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           onValueChange={(value) => onTabChange(value as NJTabId)}
           className="w-full"
         >
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-px border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md md:grid-cols-4 xl:grid-cols-9">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-px border border-white/10 bg-black/70 p-0 text-white/50 backdrop-blur-md md:grid-cols-3 xl:grid-cols-6">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               return (
@@ -389,12 +363,6 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
           <TabsContent value="blessing" className="mt-5">
             <BlessingPanel />
           </TabsContent>
-          <TabsContent value="quests" className="mt-5">
-            <QuestsPanel />
-          </TabsContent>
-          <TabsContent value="outreach" className="mt-5">
-            <OutreachPanel />
-          </TabsContent>
           <TabsContent value="trophies" className="mt-5">
             <TrophyRoom />
           </TabsContent>
@@ -413,7 +381,11 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
       </button>
 
       {/* Guided Tour Help Fairy Overlay */}
-      <HelpFairy open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <HelpFairy
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onNavigateTab={onTabChange}
+      />
     </div>
   );
 }

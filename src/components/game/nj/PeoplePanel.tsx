@@ -1,12 +1,10 @@
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowDown,
   CalendarDays,
   DoorClosed,
-  ExternalLink,
   HeartHandshake,
-  Loader2,
   Radar,
   UserPlus,
   UsersRound,
@@ -21,25 +19,11 @@ import npcReadingImg from "@/assets/sprites/npc/npc_reading.png";
 import npcSaluteImg from "@/assets/sprites/npc/npc_salute.png";
 import npcWalkingImg from "@/assets/sprites/npc/npc_walking.png";
 import npcWaveImg from "@/assets/sprites/npc/npc_wave.png";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ACTION_QUEUE_URL, addGuest } from "@/lib/njActions";
 import { GUEST_FUNNEL, MEMBERSHIP, RECENT_GUESTS } from "@/lib/njData";
-import { award, awardOnce } from "@/lib/progression";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { celebrate } from "./ProgressHud";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const CARD = "border border-white/10 bg-black/60 backdrop-blur-md";
-const DIALOG_CONTENT =
-  "max-h-[calc(100vh-2rem)] overflow-y-auto rounded-none border-white/15 bg-[#050509]/95 text-white shadow-[0_0_48px_rgba(234,179,8,0.18)] backdrop-blur-xl sm:rounded-none [&>button]:rounded-none [&>button]:text-white/60 [&>button:hover]:text-white";
 
 const npcSprites = [npcWaveImg, npcReadingImg, npcSaluteImg, npcWalkingImg, npcLoveImg, npcConfusedImg];
 
@@ -420,160 +404,6 @@ function GuestFunnel() {
   );
 }
 
-function CaptureGuestCard() {
-  const [open, setOpen] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [firstSunday, setFirstSunday] = useState("");
-  const [notes, setNotes] = useState("");
-  const [pending, setPending] = useState(false);
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (pending) return;
-
-    setPending(true);
-    try {
-      const res = await addGuest({
-        data: {
-          firstName,
-          lastName,
-          firstSunday,
-          notes,
-        },
-      });
-
-      if (res.ok) {
-        celebrate(award("guest_added"));
-        celebrate(awardOnce("feature_first_use", "feature:guest_add"));
-        toast.success(res.message, {
-          description: "Action Queue entry ready for office review.",
-        });
-        setFirstName("");
-        setLastName("");
-        setFirstSunday("");
-        setNotes("");
-        setOpen(false);
-      } else {
-        toast.error(res.message);
-      }
-    } finally {
-      setPending(false);
-    }
-  };
-
-  return (
-    <Reveal className={cn(CARD, "relative overflow-hidden p-4")} delay={0.02}>
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(circle at 18% 16%, rgba(234,179,8,0.18), transparent 34%), radial-gradient(circle at 84% 70%, rgba(45,212,191,0.12), transparent 32%)",
-        }}
-      />
-      <div className="relative flex h-full flex-col gap-3">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-amber-100/75">Capture new guest</p>
-            <h4 className="mt-1 text-2xl font-bold uppercase text-white">New face</h4>
-          </div>
-          <span className="grid h-11 w-11 place-items-center border border-amber-200/30 bg-amber-300/10 text-amber-100">
-            <UserPlus className="size-5" />
-          </span>
-        </div>
-
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <button
-              type="button"
-              className="flex h-14 w-full items-center justify-center gap-3 border border-amber-100/45 bg-amber-300/10 px-4 text-[10px] font-bold uppercase tracking-[0.28em] text-amber-50 shadow-[0_0_22px_rgba(234,179,8,0.16)] transition hover:bg-amber-300/15"
-            >
-              <UserPlus className="size-4" />
-              Capture new guest +
-            </button>
-          </DialogTrigger>
-          <DialogContent className={cn(DIALOG_CONTENT, "max-w-xl")}>
-            <DialogHeader className="pr-8 text-left">
-              <DialogTitle className="text-2xl font-bold uppercase tracking-[0.28em] text-white">
-                Capture new guest
-              </DialogTitle>
-              <DialogDescription className="text-[10px] uppercase leading-5 tracking-[0.24em] text-white/40">
-                New face
-              </DialogDescription>
-            </DialogHeader>
-            <form className="grid gap-3" onSubmit={handleSubmit}>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">First</span>
-                  <input
-                    className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-amber-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={firstName}
-                    onChange={(event) => setFirstName(event.target.value)}
-                    disabled={pending}
-                    required
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Last</span>
-                  <input
-                    className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-amber-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={lastName}
-                    onChange={(event) => setLastName(event.target.value)}
-                    disabled={pending}
-                  />
-                </label>
-              </div>
-
-              <label className="block">
-                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">
-                  First Sunday
-                </span>
-                <input
-                  className="h-10 w-full border border-white/10 bg-black/70 px-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-amber-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={firstSunday}
-                  onChange={(event) => setFirstSunday(event.target.value)}
-                  placeholder="6/14/26"
-                  disabled={pending}
-                  required
-                />
-              </label>
-
-              <label className="block">
-                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.26em] text-white/35">Note</span>
-                <textarea
-                  className="min-h-20 w-full resize-none border border-white/10 bg-black/70 px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-amber-100/45 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  disabled={pending}
-                />
-              </label>
-
-              <button
-                type="submit"
-                className="flex h-11 w-full items-center justify-center gap-2 border border-amber-100/45 bg-amber-300/10 px-4 text-[10px] font-bold uppercase tracking-[0.28em] text-amber-50 transition hover:bg-amber-300/15 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={pending || firstName.trim().length === 0 || firstSunday.trim().length === 0}
-              >
-                {pending ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
-                Capture
-              </button>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        <a
-          href={ACTION_QUEUE_URL}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center justify-between gap-3 border border-white/10 bg-white/[0.035] p-3 text-[10px] font-bold uppercase leading-5 tracking-[0.22em] text-white/48 transition hover:text-white"
-        >
-          <span>HQ tracker is protected — actions queue here for the office</span>
-          <ExternalLink className="size-4 shrink-0 text-amber-100" />
-        </a>
-      </div>
-    </Reveal>
-  );
-}
-
 function RecentGuests() {
   return (
     <section>
@@ -585,7 +415,6 @@ function RecentGuests() {
       </SectionHeader>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <CaptureGuestCard />
         {RECENT_GUESTS.map((guest, index) => (
           <Reveal key={`${guest.firstName}-${guest.firstSunday}`} className={cn(CARD, "p-4")} delay={index * 0.035}>
             <div className="flex items-center gap-4">
