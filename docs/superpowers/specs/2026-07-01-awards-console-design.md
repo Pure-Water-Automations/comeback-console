@@ -176,6 +176,12 @@ audit rows is `"admin"`.
   limited to the three standard chart types (recharts, chart tokens):
   **trend** (weekly attendance/points lines), **leaderboard** (points bar),
   **distribution** (points by size tier).
+  Per VA Marc's testing feedback (2026-07-01): a **full standings table
+  with a category toggle** — Overall / Finance / Active Members / Blessing
+  — showing all 18 communities ranked per selected category, not just the
+  podium; and **provenance affordances** — a "last updated" timestamp plus
+  an info popover per metric explaining how the number is calculated and
+  its update cadence, driven by the metric catalog's governance metadata.
 - **`/dashboard`** — becomes the stripped local console: `GameNav`,
   community picker (kept), scoreboard-first stat blocks, "our award wins"
   strip (from finalized runs), trophy teaser linking to the rulebook/awards.
@@ -219,6 +225,23 @@ Vitest (already configured):
 - `mkdir -p /app/SecondBrain/comeback-console/data` once; add
   `COMEBACK_DB_PATH` and `ADMIN_PASSCODE` to `comeback-console.service`.
 - No change to the deploy script flow (rsync + npm ci + restart).
+
+## Testing feedback incorporated (VA Marc, 2026-07-01)
+
+From the COMEBACK Console VA testing pages in Notion:
+
+- **FAB category standings toggle** on `/scoreboard` (full table per
+  category) — added above; Marc asked for exactly this ("toggle the
+  rankings to view the FAB standings").
+- **Trust/provenance**: "clear information about how the numbers are
+  calculated and when they were last updated" — covered by the source
+  badge + metric-catalog info popovers added above.
+- **Bug ride-along**: the HUD telemetry panel (ProgressHud) overlaps the
+  NJ console tab bar — fix while touching shared chrome for GameNav.
+
+Noted but deliberately NOT in this build (separate backlog): built-in text
+size setting, more visible pagination/loading on the home scroll-story,
+docking/resizing the easter-egg CLI, a first-time mini guided tour.
 
 ## Out of scope
 
