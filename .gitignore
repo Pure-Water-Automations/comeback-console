@@ -36,3 +36,6 @@ dist-ssr
 
 # Face API models
 public/models/
+
+# Awards Console SQLite (local dev; VPS uses COMEBACK_DB_PATH)
+data/

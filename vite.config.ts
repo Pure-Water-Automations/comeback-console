@@ -17,6 +17,7 @@ export default defineConfig({
     // @tensorflow/tfjs-node). The package's "browser" field points to face-api.esm.js.
     ssr: {
       noExternal: ["@vladmandic/face-api"],
+      external: ["better-sqlite3"],
     },
   },
 });
