@@ -4,10 +4,10 @@
 
 import { useMemo } from "react";
 import {
-  Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer,
+  Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from "recharts";
-import type { RankedCommunity } from "@/lib/comebackData";
+import { pctOfTarget, type RankedCommunity } from "@/lib/comebackData";
 
 const GRID = "rgba(255,255,255,0.08)";
 const AXIS = { fill: "rgba(255,255,255,0.45)", fontSize: 10 };
@@ -26,14 +26,31 @@ function Panel({ title, sub, children }: { title: string; sub: string; children:
   );
 }
 
-export function ScoreboardCharts({ standings }: { standings: RankedCommunity[] }) {
-  // TREND — region-wide Sunday attendance per week of the month
+export function ScoreboardCharts({
+  standings,
+  sourceKey,
+}: {
+  standings: RankedCommunity[];
+  /** Changes when live data replaces the snapshot — remounts the charts so
+   *  ResponsiveContainer re-measures after layout has settled (its initial
+   *  measurement can race the grid and stick at a tiny width). */
+  sourceKey: string;
+}) {
+  // TREND — region-wide Sunday attendance per week of the month. Weeks that
+  // only a handful of communities have reported yet are dropped: summing them
+  // makes the region line nosedive and reads as collapse, not missing data.
   const trend = useMemo(() => {
     const weekCount = Math.max(...standings.map((c) => c.weeklyAttendance.length), 0);
-    return Array.from({ length: weekCount }, (_, w) => ({
-      week: `Wk ${w + 1}`,
-      region: standings.reduce((sum, c) => sum + (c.weeklyAttendance[w] ?? 0), 0),
-    })).filter((row) => row.region > 0);
+    const weeks = Array.from({ length: weekCount }, (_, w) => {
+      const reported = standings.filter((c) => (c.weeklyAttendance[w] ?? 0) > 0);
+      return {
+        week: `Wk ${w + 1}`,
+        region: reported.reduce((sum, c) => sum + (c.weeklyAttendance[w] ?? 0), 0),
+        reporters: reported.length,
+      };
+    });
+    const maxReporters = Math.max(...weeks.map((w) => w.reporters), 1);
+    return weeks.filter((w) => w.reporters >= Math.max(3, Math.ceil(maxReporters / 2)));
   }, [standings]);
 
   // LEADERBOARD — top 10 by total points
@@ -46,18 +63,22 @@ export function ScoreboardCharts({ standings }: { standings: RankedCommunity[] }
     [standings],
   );
 
-  // DISTRIBUTION — average points per size tier
+  // DISTRIBUTION — average % of target per size tier (across the three FAB
+  // lanes). Percent reads upward and fair across divisions, where raw points
+  // mid-campaign are often all negative and render as a wall of sad bars.
   const distribution = useMemo(() => {
     const tiers = ["Extra Large", "Medium", "Small", "Family Group"] as const;
+    const communityPct = (c: RankedCommunity) =>
+      (pctOfTarget(c.finance) + pctOfTarget(c.activeMembers) + pctOfTarget(c.blessing)) / 3;
     return tiers.map((size) => {
       const group = standings.filter((c) => c.size === size);
-      const avg = group.length ? Math.round(group.reduce((s, c) => s + c.points, 0) / group.length) : 0;
+      const avg = group.length ? Math.round(group.reduce((s, c) => s + communityPct(c), 0) / group.length) : 0;
       return { size: size === "Family Group" ? "Family Grp" : size, avg, n: group.length };
     });
   }, [standings]);
 
   return (
-    <section className="grid gap-4 lg:grid-cols-3">
+    <section key={sourceKey} className="grid gap-4 lg:grid-cols-3">
       <Panel title="Attendance Trend" sub="Region-wide Sunday worship, this month">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
@@ -65,7 +86,7 @@ export function ScoreboardCharts({ standings }: { standings: RankedCommunity[] }
             <XAxis dataKey="week" tick={AXIS} tickLine={false} axisLine={false} />
             <YAxis tick={AXIS} tickLine={false} axisLine={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ stroke: GRID }} />
-            <Line type="monotone" dataKey="region" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
+            <Line isAnimationActive={false} type="monotone" dataKey="region" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
           </LineChart>
         </ResponsiveContainer>
       </Panel>
@@ -76,18 +97,30 @@ export function ScoreboardCharts({ standings }: { standings: RankedCommunity[] }
             <XAxis type="number" tick={AXIS} tickLine={false} axisLine={false} />
             <YAxis type="category" dataKey="name" width={82} tick={AXIS} tickLine={false} axisLine={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-            <Bar dataKey="points" fill="var(--chart-1)" maxBarSize={14} />
+            <Bar isAnimationActive={false} dataKey="points" maxBarSize={14}>
+              {leaderboard.map((entry) => (
+                <Cell key={entry.name} fill={entry.points > 0 ? "var(--chart-1)" : "rgba(255,255,255,0.22)"} />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </Panel>
-      <Panel title="Points by Division" sub="Average total points per size tier">
+      <Panel title="Target Progress by Division" sub="Average % of trimester target per size tier">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={distribution} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
             <CartesianGrid stroke={GRID} vertical={false} />
             <XAxis dataKey="size" tick={AXIS} tickLine={false} axisLine={false} />
             <YAxis tick={AXIS} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-            <Bar dataKey="avg" fill="var(--chart-4)" maxBarSize={40} />
+            <Tooltip
+              contentStyle={TOOLTIP_STYLE}
+              cursor={{ fill: "rgba(255,255,255,0.04)" }}
+              formatter={(v: number) => [`${v}% of target`, "Average"]}
+            />
+            <Bar isAnimationActive={false} dataKey="avg" maxBarSize={40}>
+              {distribution.map((entry) => (
+                <Cell key={entry.size} fill={entry.avg >= 100 ? "var(--chart-2)" : "var(--chart-4)"} />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </Panel>

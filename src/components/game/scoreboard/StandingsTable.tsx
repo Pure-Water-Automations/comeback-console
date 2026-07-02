@@ -1,21 +1,68 @@
 // Full 18-community standings with the FAB category toggle VA Marc asked for
-// (Overall / Income / Members / Blessing) and provenance popovers explaining
-// how each number is calculated (metric catalog governance metadata).
+// (Overall / Income / Members / Blessing), a value-mode switch (Points ·
+// % of Target · Actuals), provenance popovers, and click-to-expand board
+// cards showing everything on the community's live scoreboard row.
 
-import { useMemo, useState } from "react";
-import { Info } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
+import { ChevronDown, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { CommunityBoard } from "@/lib/boardTypes";
 import { METRIC_BY_ID, type MetricDef } from "@/lib/awards-engine/metricCatalog";
-import type { RankedCommunity } from "@/lib/comebackData";
+import { pctOfTarget, type RankedCommunity } from "@/lib/comebackData";
 import { cn } from "@/lib/utils";
+import { CommunityBoardCard } from "./CommunityBoardCard";
 
 type CategoryKey = "overall" | "finance" | "members" | "blessing";
+type ValueMode = "pts" | "pct" | "actual";
 
-const CATEGORIES: { key: CategoryKey; label: string; metric: MetricDef; points: (c: RankedCommunity) => number }[] = [
-  { key: "overall", label: "Overall", metric: METRIC_BY_ID.total_points, points: (c) => c.points },
-  { key: "finance", label: "Income", metric: METRIC_BY_ID.finance_points, points: (c) => c.financePoints },
-  { key: "members", label: "Members", metric: METRIC_BY_ID.member_points, points: (c) => c.memberPoints },
-  { key: "blessing", label: "Blessing", metric: METRIC_BY_ID.blessing_points, points: (c) => c.blessingPoints },
+const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+const int = (n: number) => Math.round(n).toLocaleString("en-US");
+const signed = (n: number) => `${n > 0 ? "+" : ""}${Math.round(n)}`;
+const pctStr = (n: number) => `${n.toFixed(1)}%`;
+
+interface Lane {
+  key: Exclude<CategoryKey, "overall">;
+  label: string;
+  metric: MetricDef;
+  pts: (c: RankedCommunity) => number;
+  pct: (c: RankedCommunity, b?: CommunityBoard) => number;
+  actual: (c: RankedCommunity, b?: CommunityBoard) => number;
+  fmtActual: (n: number) => string;
+}
+
+const LANES: Lane[] = [
+  {
+    key: "finance", label: "Income", metric: METRIC_BY_ID.finance_points,
+    pts: (c) => c.financePoints,
+    pct: (c, b) => b?.finance.pct ?? pctOfTarget(c.finance),
+    actual: (c, b) => b?.finance.t2Result ?? c.finance.result,
+    fmtActual: usd,
+  },
+  {
+    key: "members", label: "Members", metric: METRIC_BY_ID.member_points,
+    pts: (c) => c.memberPoints,
+    pct: (c, b) => b?.activeMembers.pct ?? pctOfTarget(c.activeMembers),
+    actual: (c, b) => b?.activeMembers.t2Result ?? c.activeMembers.result,
+    fmtActual: int,
+  },
+  {
+    key: "blessing", label: "Blessing", metric: METRIC_BY_ID.blessing_points,
+    pts: (c) => c.blessingPoints,
+    pct: (c, b) => b?.blessing.pct ?? pctOfTarget(c.blessing),
+    actual: (c, b) => b?.blessing.t2Result ?? c.blessing.result,
+    fmtActual: int,
+  },
+];
+
+const CATEGORIES: { key: CategoryKey; label: string }[] = [
+  { key: "overall", label: "Overall" },
+  ...LANES.map((l) => ({ key: l.key as CategoryKey, label: l.label })),
+];
+
+const MODES: { key: ValueMode; label: string; hint: string }[] = [
+  { key: "pts", label: "Points", hint: "Campaign points: growth % over baseline × 10" },
+  { key: "pct", label: "% of Target", hint: "Progress toward the trimester target" },
+  { key: "actual", label: "Actuals", hint: "The real numbers behind the score" },
 ];
 
 function ProvenanceInfo({ metric }: { metric: MetricDef }) {
@@ -38,64 +85,187 @@ function ProvenanceInfo({ metric }: { metric: MetricDef }) {
   );
 }
 
-const signed = (n: number) => `${n > 0 ? "+" : ""}${n}`;
+function PctCell({ value }: { value: number }) {
+  const fill = Math.max(0, Math.min(100, value));
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <div className="h-1.5 w-16 border border-white/10 bg-white/[0.04]">
+        <div
+          className={cn("h-full", value >= 100 ? "bg-teal-300" : "bg-amber-300/80")}
+          style={{ width: `${fill}%` }}
+        />
+      </div>
+      <span className={cn("font-mono", value >= 100 ? "text-teal-100" : "text-white/70")}>{pctStr(value)}</span>
+    </div>
+  );
+}
 
-export function StandingsTable({ standings }: { standings: RankedCommunity[] }) {
+interface Column {
+  header: string;
+  render: (c: RankedCommunity, b?: CommunityBoard) => React.ReactNode;
+}
+
+function columnsFor(category: CategoryKey, mode: ValueMode): Column[] {
+  if (category === "overall") {
+    if (mode === "pts") {
+      return [
+        ...LANES.map((l) => ({ header: `${l.label} pts`, render: (c: RankedCommunity) => <span className="font-mono">{signed(l.pts(c))}</span> })),
+        { header: "Total pts", render: (c) => <span className="font-mono font-bold text-white">{signed(c.points)}</span> },
+      ];
+    }
+    if (mode === "pct") {
+      return LANES.map((l) => ({ header: `${l.label} %`, render: (c: RankedCommunity, b?: CommunityBoard) => <PctCell value={l.pct(c, b)} /> }));
+    }
+    return LANES.map((l) => ({ header: l.label, render: (c: RankedCommunity, b?: CommunityBoard) => <span className="font-mono">{l.fmtActual(l.actual(c, b))}</span> }));
+  }
+  const lane = LANES.find((l) => l.key === category)!;
+  if (mode === "pts") {
+    return [
+      { header: `${lane.label} pts`, render: (c) => <span className="font-mono font-bold text-white">{signed(lane.pts(c))}</span> },
+      { header: "Total pts", render: (c) => <span className="font-mono text-white/60">{signed(c.points)}</span> },
+    ];
+  }
+  if (mode === "pct") {
+    return [{ header: "% of target", render: (c, b) => <PctCell value={lane.pct(c, b)} /> }];
+  }
+  return [
+    { header: "Baseline", render: (c, b) => <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "baseline")}</span> },
+    { header: "Current", render: (c, b) => <span className="font-mono font-bold text-white">{lane.fmtActual(lane.actual(c, b))}</span> },
+    { header: "Target", render: (c, b) => <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "target")}</span> },
+  ];
+}
+
+function fmtLaneField(lane: Lane, b: CommunityBoard | undefined, c: RankedCommunity, field: "baseline" | "target"): string {
+  const boardLane = b ? { finance: b.finance, members: b.activeMembers, blessing: b.blessing }[lane.key] : undefined;
+  const fallback = { finance: c.finance, members: c.activeMembers, blessing: c.blessing }[lane.key][field];
+  const v = boardLane?.[field] ?? fallback;
+  return v ? lane.fmtActual(v) : "—";
+}
+
+function rankValue(c: RankedCommunity, b: CommunityBoard | undefined, category: CategoryKey, mode: ValueMode): number {
+  if (category === "overall") {
+    if (mode === "pct") return LANES.reduce((s, l) => s + l.pct(c, b), 0) / LANES.length;
+    return c.points;
+  }
+  const lane = LANES.find((l) => l.key === category)!;
+  if (mode === "pts") return lane.pts(c);
+  if (mode === "pct") return lane.pct(c, b);
+  return lane.actual(c, b);
+}
+
+export function StandingsTable({
+  standings, boards, monthLabel,
+}: { standings: RankedCommunity[]; boards: Record<string, CommunityBoard>; monthLabel: string }) {
   const [category, setCategory] = useState<CategoryKey>("overall");
-  const active = CATEGORIES.find((c) => c.key === category)!;
+  const [mode, setMode] = useState<ValueMode>("pts");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const activeMetric =
+    category === "overall" ? METRIC_BY_ID.total_points : LANES.find((l) => l.key === category)!.metric;
 
   const rows = useMemo(
     () =>
       [...standings]
-        .sort((a, b) => active.points(b) - active.points(a) || a.shortName.localeCompare(b.shortName))
+        .sort((a, b) => {
+          const av = rankValue(a, boards[a.id], category, mode);
+          const bv = rankValue(b, boards[b.id], category, mode);
+          return bv - av || a.shortName.localeCompare(b.shortName);
+        })
         .map((c, i) => ({ c, rank: i + 1 })),
-    [standings, active],
+    [standings, boards, category, mode],
   );
+
+  const columns = columnsFor(category, mode);
 
   return (
     <section className="border border-white/10 bg-black/60 p-5 backdrop-blur-md">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-bold uppercase tracking-[0.32em] text-white">Full Standings</h3>
-          <ProvenanceInfo metric={active.metric} />
+          <ProvenanceInfo metric={activeMetric} />
         </div>
-        <div className="flex gap-px border border-white/10">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => setCategory(c.key)}
-              className={cn(
-                "px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] transition-colors",
-                category === c.key ? "bg-white/15 text-white" : "bg-black/40 text-white/50 hover:text-white",
-              )}
-            >
-              {c.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-px border border-white/10">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setCategory(c.key)}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] transition-colors",
+                  category === c.key ? "bg-white/15 text-white" : "bg-black/40 text-white/50 hover:text-white",
+                )}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-px border border-white/10">
+            {MODES.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                title={m.hint}
+                onClick={() => setMode(m.key)}
+                className={cn(
+                  "px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] transition-colors",
+                  mode === m.key ? "bg-white/15 text-white" : "bg-black/40 text-white/50 hover:text-white",
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-      <div className="mt-4 overflow-x-auto">
+      <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-white/35">
+        Tap a community to open its full board
+      </p>
+      <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.24em] text-white/40">
               <th className="py-2 pr-3">#</th>
               <th className="py-2 pr-3">Community</th>
               <th className="py-2 pr-3">Size</th>
-              <th className="py-2 pr-3 text-right">{active.label} pts</th>
-              <th className="py-2 text-right">Total pts</th>
+              {columns.map((col) => (
+                <th key={col.header} className="py-2 pr-3 text-right">{col.header}</th>
+              ))}
+              <th className="w-6 py-2" />
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ c, rank }) => (
-              <tr key={c.id} className="border-b border-white/5 text-white/80">
-                <td className={cn("py-2 pr-3 font-mono", rank <= 3 && "text-amber-200")}>{rank}</td>
-                <td className="py-2 pr-3 font-bold text-white">{c.shortName}</td>
-                <td className="py-2 pr-3 text-xs text-white/50">{c.size}</td>
-                <td className="py-2 pr-3 text-right font-mono">{signed(active.points(c))}</td>
-                <td className="py-2 text-right font-mono text-white/60">{signed(c.points)}</td>
-              </tr>
-            ))}
+            {rows.map(({ c, rank }) => {
+              const expanded = expandedId === c.id;
+              return (
+                <Fragment key={c.id}>
+                  <tr
+                    className={cn(
+                      "cursor-pointer border-b border-white/5 text-white/80 transition-colors hover:bg-white/[0.04]",
+                      expanded && "bg-white/[0.05]",
+                    )}
+                    onClick={() => setExpandedId(expanded ? null : c.id)}
+                  >
+                    <td className={cn("py-2 pr-3 font-mono", rank <= 3 && "text-amber-200")}>{rank}</td>
+                    <td className="py-2 pr-3 font-bold text-white">{c.shortName}</td>
+                    <td className="py-2 pr-3 text-xs text-white/50">{c.size}</td>
+                    {columns.map((col) => (
+                      <td key={col.header} className="py-2 pr-3 text-right">{col.render(c, boards[c.id])}</td>
+                    ))}
+                    <td className="py-2 text-white/30">
+                      <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
+                    </td>
+                  </tr>
+                  {expanded ? (
+                    <tr className="border-b border-white/5">
+                      <td colSpan={columns.length + 4} className="py-3">
+                        <CommunityBoardCard community={c} board={boards[c.id] ?? null} monthLabel={monthLabel} />
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
