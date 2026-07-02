@@ -143,7 +143,19 @@ export const fetchLiveAwards = createServerFn({ method: "GET" }).handler(
     const live = await loadLiveCommunities();
     const { engineAwards } = await import("@/lib/server/engineAwards");
     const fromEngine = await engineAwards();
-    const awards = fromEngine ?? buildWeeklyAwards(live.communities);
+    // Merge: a finalized engine run overrides its legacy-computed counterpart,
+    // but awards without runs keep their live-computed results — finalizing
+    // one award must not shrink the whole ceremony to a single slide.
+    const legacy = buildWeeklyAwards(live.communities);
+    let awards = legacy;
+    if (fromEngine) {
+      const engineById = new Map(fromEngine.map((a) => [a.id, a]));
+      const legacyIds = new Set(legacy.map((a) => a.id));
+      awards = [
+        ...legacy.map((a) => engineById.get(a.id) ?? a),
+        ...fromEngine.filter((a) => !legacyIds.has(a.id)),
+      ];
+    }
     return {
       ok: live.source === "live",
       source: live.source,
