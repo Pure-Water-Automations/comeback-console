@@ -7,6 +7,7 @@
 // returns what to celebrate (xp gained, level-ups, fresh unlocks).
 
 import { useSyncExternalStore } from "react";
+import { syncTrophies } from "@/lib/trophySync";
 import {
   ATTENDANCE_2026,
   BLESSING_2026,
@@ -272,6 +273,9 @@ function evaluate(prev: ProgressState, next: ProgressState): AchievementDef[] {
       if (!prev.unlocked[a.id]) fresh.push(a);
     }
   }
+  // Single choke point all unlock paths pass through — report new trophies to
+  // the server so regional trophy-count awards can see them (fire-and-forget).
+  if (fresh.length) syncTrophies(fresh.map((a) => a.id));
   return fresh;
 }
 
@@ -389,3 +393,8 @@ export function unlockEgg(id: "egg-konami" | "egg-mascot" | "egg-night-owl" | "e
 }
 
 export const RARITY_ORDER: Rarity[] = ["common", "rare", "epic", "legendary"];
+
+/** All unlocked achievement ids (for mount-time trophy catch-up sync) */
+export function unlockedAchievementIds(): string[] {
+  return Object.keys(load().unlocked);
+}

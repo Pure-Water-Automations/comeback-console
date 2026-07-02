@@ -20,7 +20,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TEAM_LABELS } from "@/lib/comebackData";
 import { leaderFor } from "@/lib/leaders";
 import { NJ_PROFILE, SNAPSHOT_DATE } from "@/lib/njData";
-import { recordDailyVisit, recordTabVisit, unlockEgg } from "@/lib/progression";
+import { recordDailyVisit, recordTabVisit, unlockEgg, unlockedAchievementIds } from "@/lib/progression";
+import { syncTrophies } from "@/lib/trophySync";
 import { cn } from "@/lib/utils";
 import { AttendancePanel } from "./AttendancePanel";
 import { BlessingPanel } from "./BlessingPanel";
@@ -295,6 +296,9 @@ export function NJConsole({ activeTab, onTabChange }: NJConsoleProps) {
 
   useEffect(() => {
     celebrate(recordDailyVisit());
+    // One-shot catch-up: report everything unlocked before server-side
+    // trophies existed (idempotent server-side).
+    syncTrophies(unlockedAchievementIds());
   }, []);
 
   useEffect(() => {
