@@ -32,7 +32,7 @@ import {
 
 const SCOREBOARD_SHEET_ID = "1B2n0xjDppwGGJyvZH2zP_il-CsdctNA4xozEMuYJTT4";
 // Latest first — the parser uses the first tab that yields real community rows.
-const MONTH_TABS = ["June 2026", "May 2026", "April 2026", "March 2026", "Feb 2026", "Jan 2026"];
+export const MONTH_TABS = ["June 2026", "May 2026", "April 2026", "March 2026", "Feb 2026", "Jan 2026"];
 const VALID_SIZES = new Set<CommunitySize>(["Extra Large", "Medium", "Small", "Family Group"]);
 
 const num = (v: string | undefined): number => {
@@ -91,6 +91,43 @@ function toCommunity(row: string[], index: number): Community | null {
   };
 }
 
+export interface LiveCommunitiesResult {
+  communities: Community[];
+  month: string | null;
+  source: "live" | "snapshot";
+  message?: string;
+}
+
+/**
+ * Parse the freshest month tab (optionally trying preferTab first) into
+ * Community[]; falls back to the static snapshot on any failure.
+ */
+export async function loadLiveCommunities(preferTab?: string): Promise<LiveCommunitiesResult> {
+  try {
+    const { getValues } = await import("@/lib/server/sheets");
+    const tabs = preferTab ? [preferTab, ...MONTH_TABS.filter((t) => t !== preferTab)] : MONTH_TABS;
+    for (const tab of tabs) {
+      let rows: string[][] = [];
+      try {
+        rows = await getValues(SCOREBOARD_SHEET_ID, `${tab}!A4:BN40`);
+      } catch {
+        continue;
+      }
+      const communities = rows.map((r, i) => toCommunity(r, i)).filter((c): c is Community => c !== null);
+      if (communities.length >= 5) return { communities, month: tab, source: "live" };
+    }
+    return {
+      communities: COMMUNITIES, month: null, source: "snapshot",
+      message: "Live scoreboard returned no community rows; showing the snapshot.",
+    };
+  } catch (err) {
+    return {
+      communities: COMMUNITIES, month: null, source: "snapshot",
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 export interface LiveAwardsPayload {
   ok: boolean;
   source: "live" | "snapshot";
@@ -103,54 +140,16 @@ export interface LiveAwardsPayload {
 
 export const fetchLiveAwards = createServerFn({ method: "GET" }).handler(
   async (): Promise<LiveAwardsPayload> => {
-    try {
-      const { getValues } = await import("@/lib/server/sheets");
-      for (const tab of MONTH_TABS) {
-        let rows: string[][] = [];
-        try {
-          rows = await getValues(SCOREBOARD_SHEET_ID, `${tab}!A4:BN40`);
-        } catch {
-          continue;
-        }
-        const communities = rows
-          .map((r, i) => toCommunity(r, i))
-          .filter((c): c is Community => c !== null);
-        // Need a real field of communities to make a sensible awards show.
-        if (communities.length >= 5) {
-          const awards = buildWeeklyAwards(communities);
-          const overview = buildRegionOverview(communities);
-          return {
-            ok: true,
-            source: "live",
-            month: tab,
-            awards,
-            overview,
-            meta: weeklyAwardsMeta(awards, communities),
-          };
-        }
-      }
-      // No tab produced enough rows — fall through to the snapshot.
-      const awards = buildWeeklyAwards();
-      return {
-        ok: false,
-        source: "snapshot",
-        month: null,
-        message: "Live scoreboard returned no community rows; showing the snapshot.",
-        awards,
-        overview: buildRegionOverview(),
-        meta: weeklyAwardsMeta(awards),
-      };
-    } catch (err) {
-      const awards = buildWeeklyAwards();
-      return {
-        ok: false,
-        source: "snapshot",
-        month: null,
-        message: err instanceof Error ? err.message : String(err),
-        awards,
-        overview: buildRegionOverview(),
-        meta: weeklyAwardsMeta(awards),
-      };
-    }
+    const live = await loadLiveCommunities();
+    const awards = buildWeeklyAwards(live.communities);
+    return {
+      ok: live.source === "live",
+      source: live.source,
+      month: live.month,
+      message: live.message,
+      awards,
+      overview: buildRegionOverview(live.communities),
+      meta: weeklyAwardsMeta(awards, live.communities),
+    };
   },
 );
