@@ -52,6 +52,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { dashboardSpriteFor, isLeaderArt, mentorCoachSprite } from "./sprites";
+import { AwardWinsStrip } from "./AwardWinsStrip";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -932,6 +933,9 @@ export function DashboardPage({ selectedCommunityId, onCommunityChange }: Dashbo
         selectedCommunityId={community.id}
         onCommunityChange={onCommunityChange}
       />
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-4 md:px-10">
+        <AwardWinsStrip communityId={community.id} />
+      </div>
       <CategoryGauges community={community} />
       <AttendanceChart community={community} />
       <QuestLog community={community} />
