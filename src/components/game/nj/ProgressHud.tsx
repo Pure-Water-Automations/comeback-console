@@ -285,7 +285,7 @@ function RankUpFlash({
   return (
     <motion.div
       key={flash.id}
-      className="fixed inset-x-0 top-[18%] z-[65] border-y border-amber-200/50 bg-amber-300/15 px-4 py-4 text-amber-50 shadow-[0_0_64px_rgba(250,204,21,0.3)] backdrop-blur-md"
+      className="pointer-events-none fixed inset-x-0 bottom-[10%] z-[65] border-y border-amber-200/50 bg-amber-300/15 px-4 py-4 text-amber-50 shadow-[0_0_64px_rgba(250,204,21,0.3)] backdrop-blur-md"
       initial={reducedMotion ? { opacity: 0 } : { opacity: 0, x: "-100%" }}
       animate={reducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
       exit={reducedMotion ? { opacity: 0 } : { opacity: 0, x: "100%" }}

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { GameNav } from "@/components/game/GameNav";
 import { DashboardPage } from "@/components/game/dashboard/DashboardPage";
 import { COMMUNITIES } from "@/lib/comebackData";
 
@@ -44,6 +45,7 @@ function DashboardRoute() {
 
   return (
     <main className="relative min-h-screen bg-[#0a0a0b]">
+      <GameNav />
       <DashboardPage
         selectedCommunityId={community}
         onCommunityChange={(communityId) => {

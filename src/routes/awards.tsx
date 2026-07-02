@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { GameNav } from "@/components/game/GameNav";
 import { AwardsShow } from "@/components/game/awards/AwardsShow";
 
 export const Route = createFileRoute("/awards")({
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/awards")({
 function AwardsRoute() {
   return (
     <main className="relative min-h-screen bg-[#0a0a0b]">
+      <GameNav />
       <AwardsShow />
     </main>
   );
