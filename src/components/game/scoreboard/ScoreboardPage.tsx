@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { motion, useScroll, useSpring, useTransform } from "motion/react";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   TEAM_LABELS,
@@ -23,9 +24,11 @@ import {
   type Community,
   type RankedCommunity,
 } from "@/lib/comebackData";
+import { getScoreboardLive } from "@/lib/scoreboardApi";
 import { cn } from "@/lib/utils";
 import { communityIsLeaderArt, communitySprite } from "./mascots";
 import { AwardsRecap } from "../awards/AwardsRecap";
+import { StandingsTable } from "./StandingsTable";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -848,7 +851,17 @@ function CategoryChampionsSection({ standings }: { standings: RankedCommunity[] 
 }
 
 export function ScoreboardPage() {
-  const standings = useMemo(() => rankedCommunities(), []);
+  const scoreboardQuery = useQuery({
+    queryKey: ["scoreboard-live"],
+    queryFn: () => getScoreboardLive(),
+    staleTime: 5 * 60_000,
+  });
+  const standings = useMemo(
+    () => scoreboardQuery.data?.standings ?? rankedCommunities(),
+    [scoreboardQuery.data],
+  );
+  const dataSource = scoreboardQuery.data?.source ?? "snapshot";
+  const dataMonth = scoreboardQuery.data?.month;
   const leader = standings[0];
 
   if (!leader) {
@@ -860,10 +873,25 @@ export function ScoreboardPage() {
       <CosmicBackdrop />
       <HeroHeader communityCount={standings.length} leader={leader} />
       <div className="relative z-10 mx-auto w-full max-w-7xl px-5 md:px-12 lg:px-16 py-8 md:py-12">
+        <div className="mb-6 flex justify-center">
+          <span
+            className={cn(
+              "inline-flex items-center gap-2 border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em]",
+              dataSource === "live"
+                ? "border-teal-200/40 bg-teal-300/10 text-teal-100"
+                : "border-amber-200/40 bg-amber-300/10 text-amber-100",
+            )}
+          >
+            {dataSource === "live" ? `Live · ${dataMonth}` : "Snapshot · Jun 9"}
+          </span>
+        </div>
         <AwardsRecap />
       </div>
       <PodiumSection standings={standings} />
       <StandingsSection standings={standings} />
+      <div className="relative z-10 mx-auto w-full max-w-7xl space-y-4 px-5 py-8 md:px-12 md:py-12 lg:px-16">
+        <StandingsTable standings={standings} />
+      </div>
       <TeamBattleSection standings={standings} />
       <CategoryChampionsSection standings={standings} />
     </div>
