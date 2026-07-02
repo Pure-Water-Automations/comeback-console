@@ -9,6 +9,7 @@
 //   Active Members: 32 baseline · 33 target · 34 current
 //   Blessing:       37 baseline · 38 target · 39 current
 
+import type { CommunityBoard, LesGoal } from "@/lib/boardTypes";
 import {
   COMMUNITIES,
   type Community,
@@ -44,6 +45,14 @@ const num = (v: string | undefined): number => {
   return Number.isFinite(n) ? n : 0;
 };
 const cell = (row: string[], i: number) => (row[i] ?? "").toString().trim();
+
+/** Like num() but empty / "--" / junk stays null (board view shows a dash). */
+const numOrNull = (row: string[], i: number): number | null => {
+  const raw = cell(row, i);
+  if (!raw || raw === "--") return null;
+  const n = Number(raw.replace(/[$,%\s]/g, ""));
+  return Number.isFinite(n) ? n : null;
+};
 
 // Match a sheet row to the static community (for stable id, shortName, mascot).
 const STATIC_BY_NAME = new Map(COMMUNITIES.map((c) => [c.name.toLowerCase(), c]));
@@ -93,8 +102,94 @@ function toCommunity(row: string[], index: number): Community | null {
   };
 }
 
+/** Weekly result cells → (number|null)[] (null = no service / not reported) */
+function weeklyCells(row: string[], from: number, to: number): (number | null)[] {
+  const weeks: (number | null)[] = [];
+  for (let i = from; i <= to; i++) {
+    const raw = cell(row, i);
+    if (!raw || raw === "--" || /no service/i.test(raw)) {
+      weeks.push(null);
+      continue;
+    }
+    const n = num(raw);
+    weeks.push(n > 0 ? n : null);
+  }
+  return weeks;
+}
+
+// LES goal blocks: Leadership 42-50, Environmental 51-59, Special 60-65.
+// Placeholder cells ("[Post goal description here]", "00-00-00") are skipped.
+const LES_BLOCKS: { category: LesGoal["category"]; start: number; goals: number }[] = [
+  { category: "leadership", start: 42, goals: 3 },
+  { category: "environment", start: 51, goals: 3 },
+  { category: "special", start: 60, goals: 2 },
+];
+
+function lesDate(row: string[], i: number): string | undefined {
+  const raw = cell(row, i);
+  if (!raw || raw.startsWith("[") || raw === "00-00-00") return undefined;
+  return raw;
+}
+
+function parseLesGoals(row: string[]): LesGoal[] {
+  const goals: LesGoal[] = [];
+  for (const block of LES_BLOCKS) {
+    for (let g = 0; g < block.goals; g++) {
+      const base = block.start + g * 3;
+      const title = cell(row, base);
+      if (!title || title.startsWith("[")) continue;
+      goals.push({
+        category: block.category,
+        title,
+        targetDate: lesDate(row, base + 1),
+        completedDate: lesDate(row, base + 2),
+      });
+    }
+  }
+  return goals;
+}
+
+/** Everything on the community's scoreboard row, using the sheet's own cells. */
+function toBoard(row: string[], communityId: string): CommunityBoard {
+  return {
+    communityId,
+    finance: {
+      baseline: numOrNull(row, 4), target: numOrNull(row, 5),
+      monthResult: numOrNull(row, 6), t2Result: numOrNull(row, 7),
+      pct: numOrNull(row, 8), points: numOrNull(row, 9),
+    },
+    activeMembers: {
+      baseline: numOrNull(row, 32), target: numOrNull(row, 33),
+      monthResult: numOrNull(row, 34), t2Result: numOrNull(row, 34),
+      pct: numOrNull(row, 35), points: numOrNull(row, 36),
+    },
+    blessing: {
+      baseline: numOrNull(row, 37), target: numOrNull(row, 38),
+      monthResult: numOrNull(row, 39), t2Result: numOrNull(row, 39),
+      pct: numOrNull(row, 40), points: numOrNull(row, 41),
+    },
+    sunday: {
+      baseline: numOrNull(row, 10), target: numOrNull(row, 11),
+      monthAvg: numOrNull(row, 12), pctGrowth: numOrNull(row, 13),
+      weeks: weeklyCells(row, 14, 18),
+    },
+    otherEvents: {
+      baseline: numOrNull(row, 19), target: numOrNull(row, 20),
+      monthAvg: numOrNull(row, 21), pctGrowth: numOrNull(row, 22),
+      weeks: weeklyCells(row, 23, 27),
+    },
+    newMembers: {
+      target: numOrNull(row, 28), monthResult: numOrNull(row, 29),
+      t2Result: numOrNull(row, 30), pctGrowth: numOrNull(row, 31),
+    },
+    lesGoals: parseLesGoals(row),
+  };
+}
+
 export interface LiveCommunitiesResult {
   communities: Community[];
+  /** Full board rows keyed by community id — empty on snapshot fallback */
+  boards: Record<string, CommunityBoard>;
   month: string | null;
   source: "live" | "snapshot";
   message?: string;
@@ -116,16 +211,26 @@ export async function loadLiveCommunities(preferTab?: string): Promise<LiveCommu
       } catch {
         continue;
       }
-      const communities = rows.map((r, i) => toCommunity(r, i)).filter((c): c is Community => c !== null);
-      if (communities.length >= 5) return { communities, month: tab, source: "live" };
+      const parsed = rows.flatMap((r, i) => {
+        const c = toCommunity(r, i);
+        return c ? [{ community: c, board: toBoard(r, c.id) }] : [];
+      });
+      if (parsed.length >= 5) {
+        return {
+          communities: parsed.map((p) => p.community),
+          boards: Object.fromEntries(parsed.map((p) => [p.board.communityId, p.board])),
+          month: tab,
+          source: "live",
+        };
+      }
     }
     return {
-      communities: COMMUNITIES, month: null, source: "snapshot",
+      communities: COMMUNITIES, boards: {}, month: null, source: "snapshot",
       message: "Live scoreboard returned no community rows; showing the snapshot.",
     };
   } catch (err) {
     return {
-      communities: COMMUNITIES, month: null, source: "snapshot",
+      communities: COMMUNITIES, boards: {}, month: null, source: "snapshot",
       message: err instanceof Error ? err.message : String(err),
     };
   }

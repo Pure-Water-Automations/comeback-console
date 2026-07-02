@@ -2,6 +2,7 @@
 // Fixed top-right chip row per DESIGN_BRIEF (bordered, backdrop-blur, no radius).
 
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useMyCommunity } from "@/lib/myCommunity";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -14,12 +15,14 @@ const LINKS = [
 
 export function GameNav() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const myCommunity = useMyCommunity();
   return (
     <nav className="fixed right-4 top-4 z-50 flex flex-wrap items-center justify-end gap-2">
       {LINKS.map((link) => (
         <Link
           key={link.to}
           to={link.to}
+          search={link.to === "/dashboard" ? { community: myCommunity } : undefined}
           className={cn(
             "border px-4 py-2 text-xs uppercase tracking-[0.3em] backdrop-blur-md transition-colors",
             pathname === link.to
