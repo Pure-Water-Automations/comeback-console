@@ -31,6 +31,25 @@ outreach, trophies) with XP/ranks/achievements/easter eggs.
 - Campaign scoring rule: points = growth % over baseline × 10. Activity rule:
   Active = 3+ attendances in the last 3 months (91-day window).
 
+## Awards Console (configurable recognition engine)
+
+- Award definitions, runs, prize inventory/issuances, trophy events, and the
+  audit trail live in **SQLite** (better-sqlite3; VPS is Node 20). DB file:
+  `COMEBACK_DB_PATH` env — VPS `/app/SecondBrain/comeback-console/data/comeback.db`
+  (outside `current/`, survives rsync deploys); local default `./data/comeback.db`.
+- Admin UI at **/awards/admin**, gated by the `ADMIN_PASSCODE` env var
+  (checked server-side on every admin server fn; unset = admin disabled).
+  Dev launch config uses `test1234`.
+- Engine code: `src/lib/awards-engine/` (metric catalog + evaluators, unit
+  tested); repo layer `src/lib/server/awardsRepo.ts`; the 11 seed awards
+  reproduce the legacy `weeklyAwards.ts` categories (parity-tested).
+- The ceremony (`fetchLiveAwards`) merges finalized engine runs over the
+  legacy live-computed awards; the DB starting empty means zero behavior
+  change until an admin finalizes runs.
+- Server-only modules live under `src/lib/server/` — TanStack import
+  protection denies them from client-reachable code; only import them
+  dynamically inside server fn handlers.
+
 ## Dev / deploy
 
 ```bash
