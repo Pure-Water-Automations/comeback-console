@@ -28,6 +28,7 @@ import { getScoreboardLive } from "@/lib/scoreboardApi";
 import { cn } from "@/lib/utils";
 import { communityIsLeaderArt, communitySprite } from "./mascots";
 import { AwardsRecap } from "../awards/AwardsRecap";
+import { ScoreboardCharts } from "./ScoreboardCharts";
 import { StandingsTable } from "./StandingsTable";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -890,6 +891,7 @@ export function ScoreboardPage() {
       <PodiumSection standings={standings} />
       <StandingsSection standings={standings} />
       <div className="relative z-10 mx-auto w-full max-w-7xl space-y-4 px-5 py-8 md:px-12 md:py-12 lg:px-16">
+        <ScoreboardCharts standings={standings} />
         <StandingsTable standings={standings} />
       </div>
       <TeamBattleSection standings={standings} />
