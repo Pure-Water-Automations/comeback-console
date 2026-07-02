@@ -39,3 +39,6 @@ public/models/
 
 # Awards Console SQLite (local dev; VPS uses COMEBACK_DB_PATH)
 /data/
+
+# Local reference art, not part of the app
+/FINAL JRPG Sprite Characters for Leadership Directory  (1)/
