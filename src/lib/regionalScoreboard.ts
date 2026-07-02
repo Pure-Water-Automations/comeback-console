@@ -141,7 +141,9 @@ export interface LiveAwardsPayload {
 export const fetchLiveAwards = createServerFn({ method: "GET" }).handler(
   async (): Promise<LiveAwardsPayload> => {
     const live = await loadLiveCommunities();
-    const awards = buildWeeklyAwards(live.communities);
+    const { engineAwards } = await import("@/lib/server/engineAwards");
+    const fromEngine = await engineAwards();
+    const awards = fromEngine ?? buildWeeklyAwards(live.communities);
     return {
       ok: live.source === "live",
       source: live.source,
