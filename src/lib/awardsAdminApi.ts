@@ -4,6 +4,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { METRICS } from "@/lib/awards-engine/metricCatalog";
 import type { AwardDef, AwardRunResult, EngineData } from "@/lib/awards-engine/types";
 import type { AuditRow, AwardRunRow, IssuanceRow, PrizeRow } from "@/lib/server/awardsRepo";
 
@@ -38,7 +39,9 @@ const scopeSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("list"), communityIds: z.array(z.string()).min(1) }),
 ]);
 
-const defSchema = z
+const metricIdSchema = z.enum(METRICS.map((m) => m.id) as [string, ...string[]]);
+
+export const defSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9][a-z0-9-]{1,39}$/, "lowercase slug, 2-40 chars"),
     name: z.string().min(2).max(60),
@@ -46,11 +49,11 @@ const defSchema = z
     emoji: z.string().min(1).max(8),
     tone: z.enum(["gold", "teal", "violet", "rose", "blue"]),
     evaluator: z.enum(["metric_rank", "david", "triple_header", "trophy_count"]),
-    metricId: z.string().optional(),
+    metricId: metricIdSchema.optional(),
     scope: scopeSchema,
     tiers: z.union([z.literal(1), z.literal(3)]),
     window: z.string().max(40).default("campaign"),
-    tieBreakers: z.array(z.string()).max(4).default([]),
+    tieBreakers: z.array(metricIdSchema).max(4).default([]),
     eligibility: z
       .object({
         minWeeksReported: z.number().int().min(0).max(5).optional(),
@@ -101,7 +104,7 @@ async function computeRun(defId: string) {
   const live = await loadLiveCommunities(preferTab);
   const data: EngineData = { communities: live.communities, trophyCounts: r.trophyCounts() };
   const results = evaluateAward(def, data);
-  return { r, def, live, results };
+  return { r, def, live, results, preferTab };
 }
 
 // --- server fns ---
@@ -133,7 +136,7 @@ export const adminState = createServerFn({ method: "POST" })
   });
 
 export const adminSaveDef = createServerFn({ method: "POST" })
-  .inputValidator((d: { passcode: string; def: unknown }) => d)
+  .inputValidator((d: { passcode: string; def: unknown; isNew?: boolean }) => d)
   .handler(async ({ data }): Promise<{ ok: boolean; error?: string }> => {
     requireAdmin(data.passcode);
     const parsed = defSchema.safeParse(data.def);
@@ -141,6 +144,9 @@ export const adminSaveDef = createServerFn({ method: "POST" })
       return { ok: false, error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") };
     }
     const r = await repo();
+    if (data.isNew && r.getDef(parsed.data.id)) {
+      return { ok: false, error: `An award with id "${parsed.data.id}" already exists — pick a different id.` };
+    }
     r.saveDef(parsed.data as AwardDef, ACTOR);
     return { ok: true };
   });
@@ -165,21 +171,31 @@ export const adminRunFinalize = createServerFn({ method: "POST" })
   .inputValidator((d: { passcode: string; defId: string; allowSnapshot?: boolean }) => d)
   .handler(async ({ data }): Promise<{ ok: boolean; runId?: number; issuances?: number; error?: string }> => {
     requireAdmin(data.passcode);
-    const { r, def, live, results } = await computeRun(data.defId);
+    const { r, def, live, results, preferTab } = await computeRun(data.defId);
     if (live.source === "snapshot" && !data.allowSnapshot) {
       return { ok: false, error: "Live sheet unavailable — re-run with “allow snapshot data” to finalize anyway." };
     }
-    const runId = r.insertRun(
+    if (preferTab && live.month !== preferTab && !data.allowSnapshot) {
+      return {
+        ok: false,
+        error: `This award is scoped to "${preferTab}" but live data came from ${live.month ?? "the snapshot"} — tick “allow snapshot data” to finalize on that data anyway.`,
+      };
+    }
+    const { runId, issuances } = r.finalizeRunAndIssue(
       {
         awardId: def.id,
         windowLabel: live.month ?? def.window,
         dataSource: live.source,
         results,
       },
+      def,
       ACTOR,
     );
-    if (live.source === "snapshot") r.audit(ACTOR, "run.snapshot-override", "award_run", String(runId), {});
-    const issuances = r.createIssuancesForRun(runId, def, results, ACTOR);
+    if (live.source === "snapshot" || (preferTab && live.month !== preferTab)) {
+      r.audit(ACTOR, "run.data-override", "award_run", String(runId), {
+        requested: preferTab ?? "latest", used: live.month ?? "snapshot",
+      });
+    }
     return { ok: true, runId, issuances };
   });
 

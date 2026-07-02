@@ -24,6 +24,7 @@ import {
   type Community,
   type RankedCommunity,
 } from "@/lib/comebackData";
+import { SNAPSHOT_DATE } from "@/lib/njData";
 import { getScoreboardLive } from "@/lib/scoreboardApi";
 import { cn } from "@/lib/utils";
 import { communityIsLeaderArt, communitySprite } from "./mascots";
@@ -876,6 +877,7 @@ export function ScoreboardPage() {
       <div className="relative z-10 mx-auto w-full max-w-7xl px-5 md:px-12 lg:px-16 py-8 md:py-12">
         <div className="mb-6 flex justify-center">
           <span
+            title={scoreboardQuery.data ? `Checked ${new Date(scoreboardQuery.data.generatedAt).toLocaleString("en-US")}` : undefined}
             className={cn(
               "inline-flex items-center gap-2 border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em]",
               dataSource === "live"
@@ -883,7 +885,7 @@ export function ScoreboardPage() {
                 : "border-amber-200/40 bg-amber-300/10 text-amber-100",
             )}
           >
-            {dataSource === "live" ? `Live · ${dataMonth}` : "Snapshot · Jun 9"}
+            {dataSource === "live" ? `Live · ${dataMonth}` : `Snapshot · ${SNAPSHOT_DATE}`}
           </span>
         </div>
         <AwardsRecap />

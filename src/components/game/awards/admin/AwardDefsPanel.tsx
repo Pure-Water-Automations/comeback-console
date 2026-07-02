@@ -45,6 +45,7 @@ export function AwardDefsPanel({
   state, passcode, onChanged,
 }: { state: AdminStatePayload; passcode: string; onChanged: () => void }) {
   const [editing, setEditing] = useState<AwardDef | null>(null);
+  const [isNew, setIsNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ defId: string; payload: RunPreviewPayload } | null>(null);
   const [allowSnapshot, setAllowSnapshot] = useState(false);
@@ -54,7 +55,7 @@ export function AwardDefsPanel({
     if (!editing) return;
     setBusy(true);
     setError(null);
-    const res = await adminSaveDef({ data: { passcode, def: editing } });
+    const res = await adminSaveDef({ data: { passcode, def: editing, isNew } });
     setBusy(false);
     if (!res.ok) return setError(res.error ?? "Save failed");
     setEditing(null);
@@ -91,7 +92,7 @@ export function AwardDefsPanel({
       <div className="space-y-2">
         <button
           type="button"
-          onClick={() => setEditing({ ...EMPTY_DEF })}
+          onClick={() => { setIsNew(true); setEditing({ ...EMPTY_DEF }); }}
           className="w-full border border-dashed border-white/20 px-3 py-2 text-xs font-bold uppercase tracking-[0.24em] text-white/60 hover:border-white/50 hover:text-white"
         >
           + New award
@@ -101,7 +102,7 @@ export function AwardDefsPanel({
           return (
             <div key={def.id} className="border border-white/10 bg-black/60 px-3 py-2.5">
               <div className="flex items-center justify-between gap-2">
-                <button type="button" onClick={() => setEditing(def)} className="min-w-0 text-left">
+                <button type="button" onClick={() => { setIsNew(false); setEditing(def); }} className="min-w-0 text-left">
                   <span className="block truncate text-sm font-bold text-white">
                     {def.emoji} {def.name}
                   </span>
@@ -210,11 +211,11 @@ export function AwardDefsPanel({
         ) : editing ? (
           <div className="space-y-3 border border-white/10 bg-black/60 p-4">
             <h3 className="text-sm font-bold uppercase tracking-[0.28em] text-white">
-              {editing.id && state.defs.some((d) => d.id === editing.id) ? `Edit — ${editing.id}` : "New award"}
+              {isNew ? "New award" : `Edit — ${editing.id}`}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Id (slug, permanent)">
-                <input className={inputCls} value={editing.id} disabled={state.defs.some((d) => d.id === editing.id)}
+                <input className={inputCls} value={editing.id} disabled={!isNew}
                   onChange={(e) => upd({ id: e.target.value })} placeholder="my-award" />
               </Field>
               <Field label="Name"><input className={inputCls} value={editing.name} onChange={(e) => upd({ name: e.target.value })} /></Field>

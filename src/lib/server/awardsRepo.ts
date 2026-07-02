@@ -118,6 +118,35 @@ export function makeAwardsRepo(db: DB) {
       now: now(),
     });
 
+  const insertRunImpl = (
+    run: { awardId: string; windowLabel: string; dataSource: "live" | "snapshot"; results: AwardRunResult },
+    actor: string,
+  ): number => {
+    const info = db
+      .prepare("INSERT INTO award_runs (award_id, ran_at, window_label, data_source, results, status) VALUES (?,?,?,?,?,'final')")
+      .run(run.awardId, now(), run.windowLabel, run.dataSource, JSON.stringify(run.results));
+    const id = Number(info.lastInsertRowid);
+    audit(actor, "run.finalize", "award_run", String(id), {
+      awardId: run.awardId, windowLabel: run.windowLabel, dataSource: run.dataSource,
+      winners: run.results.winners.map((w) => w.communityId),
+    });
+    return id;
+  };
+
+  const createIssuancesImpl = (runId: number, def: AwardDef, results: AwardRunResult, actor: string): number => {
+    const ins = db.prepare(
+      "INSERT INTO prize_issuances (run_id, award_id, tier, community_id, prize_id, status, created_at, updated_at) VALUES (?,?,?,?,NULL,'pending',?,?)",
+    );
+    let created = 0;
+    for (const w of results.winners) {
+      if (!def.prizes.some((p) => p.tier === w.tier)) continue;
+      ins.run(runId, def.id, w.tier, w.communityId, now(), now());
+      created++;
+    }
+    if (created) audit(actor, "issuance.create", "award_run", String(runId), { created });
+    return created;
+  };
+
   return {
     audit,
 
@@ -148,19 +177,19 @@ export function makeAwardsRepo(db: DB) {
     },
 
     // --- runs ---
-    insertRun(
+    insertRun: insertRunImpl,
+    /** Run + its pending issuances in ONE transaction — no orphaned runs. */
+    finalizeRunAndIssue(
       run: { awardId: string; windowLabel: string; dataSource: "live" | "snapshot"; results: AwardRunResult },
+      def: AwardDef,
       actor: string,
-    ): number {
-      const info = db
-        .prepare("INSERT INTO award_runs (award_id, ran_at, window_label, data_source, results, status) VALUES (?,?,?,?,?,'final')")
-        .run(run.awardId, now(), run.windowLabel, run.dataSource, JSON.stringify(run.results));
-      const id = Number(info.lastInsertRowid);
-      audit(actor, "run.finalize", "award_run", String(id), {
-        awardId: run.awardId, windowLabel: run.windowLabel, dataSource: run.dataSource,
-        winners: run.results.winners.map((w) => w.communityId),
+    ): { runId: number; issuances: number } {
+      const tx = db.transaction(() => {
+        const runId = insertRunImpl(run, actor);
+        const issuances = createIssuancesImpl(runId, def, run.results, actor);
+        return { runId, issuances };
       });
-      return id;
+      return tx();
     },
     listRuns(awardId?: string): AwardRunRow[] {
       const rows = awardId
@@ -181,8 +210,10 @@ export function makeAwardsRepo(db: DB) {
     },
     savePrize(p: Omit<PrizeRow, "id" | "qtyIssued"> & { id?: number }, actor: string): number {
       if (p.id) {
-        db.prepare("UPDATE prizes SET label=?, type=?, value_usd=?, qty_total=?, notes=? WHERE id=?")
+        const info = db
+          .prepare("UPDATE prizes SET label=?, type=?, value_usd=?, qty_total=?, notes=? WHERE id=?")
           .run(p.label, p.type, p.valueUsd, p.qtyTotal, p.notes, p.id);
+        if (info.changes === 0) throw new Error(`Prize ${p.id} not found`);
         audit(actor, "prize.update", "prize", String(p.id), p);
         return p.id;
       }
@@ -193,19 +224,7 @@ export function makeAwardsRepo(db: DB) {
       audit(actor, "prize.create", "prize", String(id), p);
       return id;
     },
-    createIssuancesForRun(runId: number, def: AwardDef, results: AwardRunResult, actor: string): number {
-      const ins = db.prepare(
-        "INSERT INTO prize_issuances (run_id, award_id, tier, community_id, prize_id, status, created_at, updated_at) VALUES (?,?,?,?,NULL,'pending',?,?)",
-      );
-      let created = 0;
-      for (const w of results.winners) {
-        if (!def.prizes.some((p) => p.tier === w.tier)) continue;
-        ins.run(runId, def.id, w.tier, w.communityId, now(), now());
-        created++;
-      }
-      if (created) audit(actor, "issuance.create", "award_run", String(runId), { created });
-      return created;
-    },
+    createIssuancesForRun: createIssuancesImpl,
     listIssuances(status?: IssuanceStatus): IssuanceRow[] {
       const rows = status
         ? db.prepare("SELECT * FROM prize_issuances WHERE status = ? ORDER BY id DESC").all(status)
@@ -219,12 +238,20 @@ export function makeAwardsRepo(db: DB) {
       if (!ISSUANCE_TRANSITIONS[cur.status].includes(to)) {
         throw new Error(`Illegal issuance transition ${cur.status} → ${to}`);
       }
-      db.prepare("UPDATE prize_issuances SET status=?, prize_id=COALESCE(?, prize_id), updated_at=? WHERE id=?")
-        .run(to, prizeId ?? null, now(), id);
       if (to === "issued") {
         const linked = prizeId ?? cur.prizeId;
-        if (linked) db.prepare("UPDATE prizes SET qty_issued = qty_issued + 1 WHERE id = ?").run(linked);
+        if (linked) {
+          const prize = db.prepare("SELECT * FROM prizes WHERE id = ?").get(linked);
+          if (!prize) throw new Error(`Prize ${linked} not found`);
+          const p = prizeFromRow(prize);
+          if (p.qtyIssued >= p.qtyTotal) {
+            throw new Error(`No "${p.label}" left in inventory (${p.qtyIssued}/${p.qtyTotal} issued)`);
+          }
+          db.prepare("UPDATE prizes SET qty_issued = qty_issued + 1 WHERE id = ?").run(linked);
+        }
       }
+      db.prepare("UPDATE prize_issuances SET status=?, prize_id=COALESCE(?, prize_id), updated_at=? WHERE id=?")
+        .run(to, prizeId ?? null, now(), id);
       audit(actor, `issuance.${to}`, "prize_issuance", String(id), { from: cur.status, prizeId: prizeId ?? cur.prizeId });
       return issuanceFromRow(db.prepare("SELECT * FROM prize_issuances WHERE id = ?").get(id));
     },

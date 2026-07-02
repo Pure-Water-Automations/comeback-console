@@ -13,7 +13,11 @@ export const reportTrophies = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: boolean; recorded: number }> => {
     try {
       if (!VALID_COMMUNITY_IDS.has(data.communityId)) return { ok: false, recorded: 0 };
-      const ids = (data.achievementIds ?? []).filter((s) => typeof s === "string").slice(0, 200);
+      // Closed-set validation: only ids from the real achievement registry are
+      // accepted, so anonymous callers can't inflate trophy_count awards or
+      // grow the table beyond communities × achievements.
+      const { sanitizeAchievementIds } = await import("@/lib/progression");
+      const ids = sanitizeAchievementIds(data.achievementIds).slice(0, 200);
       if (!ids.length) return { ok: true, recorded: 0 };
       const [{ getDb }, { makeAwardsRepo }] = await Promise.all([
         import("@/lib/server/db"),

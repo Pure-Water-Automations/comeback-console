@@ -398,3 +398,19 @@ export const RARITY_ORDER: Rarity[] = ["common", "rare", "epic", "legendary"];
 export function unlockedAchievementIds(): string[] {
   return Object.keys(load().unlocked);
 }
+
+const ACHIEVEMENT_ID_SET = new Set(ACHIEVEMENTS.map((a) => a.id));
+
+/**
+ * Server-trustable filter for trophy reporting: only ids from the real
+ * achievement registry pass (a closed set, which also bounds the server's
+ * trophy_events table at communities × achievements).
+ */
+export function sanitizeAchievementIds(ids: unknown): string[] {
+  if (!Array.isArray(ids)) return [];
+  return [
+    ...new Set(
+      ids.filter((x): x is string => typeof x === "string" && ACHIEVEMENT_ID_SET.has(x)),
+    ),
+  ];
+}

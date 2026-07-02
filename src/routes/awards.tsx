@@ -28,6 +28,12 @@ function AwardsRoute() {
     <main className="relative min-h-screen bg-[#0a0a0b]">
       <GameNav />
       <AwardsShow />
+      <a
+        href="/awards/admin"
+        className="fixed bottom-3 left-4 z-40 text-[10px] uppercase tracking-[0.3em] text-white/25 transition-colors hover:text-white/70"
+      >
+        Admin
+      </a>
     </main>
   );
 }

@@ -33,13 +33,18 @@ export function AdminPage() {
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["admin-state"] });
 
   if (!passcode || state.isError) {
+    const isAuthError = state.error instanceof Error && state.error.message.includes("Unauthorized");
     return (
       <div className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center gap-4 px-4">
         <GameNav />
         <p className="text-xs font-bold uppercase tracking-[0.4em] text-signal">Awards Admin</p>
         <h1 className="display text-4xl uppercase text-white">Enter Passcode</h1>
         {state.isError ? (
-          <p className="text-sm text-rose-300">That passcode was not accepted.</p>
+          <p className="text-sm text-rose-300">
+            {isAuthError
+              ? "That passcode was not accepted."
+              : "The admin console hit a server error — check the service logs and try again."}
+          </p>
         ) : null}
         <form
           className="flex w-full gap-2"

@@ -21,7 +21,10 @@ export async function engineAwards(): Promise<Award[] | null> {
     const latest = repo.latestFinalRuns();
     const awards: Award[] = defs.flatMap((def) => {
       const run = latest[def.id];
-      if (!run || run.results.winners.length === 0) return [];
+      // Zero-winner FINAL runs are included (winners: []) — mergeAwards drops
+      // the award from the ceremony, honoring the admin's finalized result
+      // over the live computation.
+      if (!run) return [];
       return [{
         id: def.id,
         title: def.name,

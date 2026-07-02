@@ -16,8 +16,25 @@ import {
 } from "@/lib/comebackData";
 
 const SCOREBOARD_SHEET_ID = "1B2n0xjDppwGGJyvZH2zP_il-CsdctNA4xozEMuYJTT4";
-// Latest first — the parser uses the first tab that yields real community rows.
+// Known legacy tab names (the sheet is inconsistent — "Feb 2026", not
+// "February 2026"), kept as fallbacks behind the date-derived candidates.
 export const MONTH_TABS = ["June 2026", "May 2026", "April 2026", "March 2026", "Feb 2026", "Jan 2026"];
+
+/**
+ * Candidate tabs, freshest first: the current month and the 11 before it
+ * (derived from today's date so new sheet tabs are picked up automatically),
+ * then any legacy names not already covered.
+ */
+function candidateTabs(): string[] {
+  const tabs: string[] = [];
+  const today = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    tabs.push(`${d.toLocaleString("en-US", { month: "long" })} ${d.getFullYear()}`);
+  }
+  for (const t of MONTH_TABS) if (!tabs.includes(t)) tabs.push(t);
+  return tabs;
+}
 const VALID_SIZES = new Set<CommunitySize>(["Extra Large", "Medium", "Small", "Family Group"]);
 
 const num = (v: string | undefined): number => {
@@ -90,7 +107,8 @@ export interface LiveCommunitiesResult {
 export async function loadLiveCommunities(preferTab?: string): Promise<LiveCommunitiesResult> {
   try {
     const { getValues } = await import("@/lib/server/sheets");
-    const tabs = preferTab ? [preferTab, ...MONTH_TABS.filter((t) => t !== preferTab)] : MONTH_TABS;
+    const candidates = candidateTabs();
+    const tabs = preferTab ? [preferTab, ...candidates.filter((t) => t !== preferTab)] : candidates;
     for (const tab of tabs) {
       let rows: string[][] = [];
       try {
