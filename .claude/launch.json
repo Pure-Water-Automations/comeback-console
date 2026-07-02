@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "52690", "--strictPort", "false"],
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["ADMIN_PASSCODE=test1234", "npm", "run", "dev", "--", "--port", "52690", "--strictPort", "false"],
       "port": 52690,
       "autoPort": false
     }

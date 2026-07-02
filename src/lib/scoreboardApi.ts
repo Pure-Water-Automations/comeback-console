@@ -14,7 +14,7 @@ export interface ScoreboardPayload {
 
 export const getScoreboardLive = createServerFn({ method: "GET" }).handler(
   async (): Promise<ScoreboardPayload> => {
-    const { loadLiveCommunities } = await import("@/lib/regionalScoreboard");
+    const { loadLiveCommunities } = await import("@/lib/server/liveCommunities");
     const live = await loadLiveCommunities();
     return {
       source: live.source,

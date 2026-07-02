@@ -95,7 +95,7 @@ async function computeRun(defId: string) {
   const r = await repo();
   const def = r.getDef(defId);
   if (!def) throw new Error(`Unknown award: ${defId}`);
-  const { loadLiveCommunities } = await import("@/lib/regionalScoreboard");
+  const { loadLiveCommunities } = await import("@/lib/server/liveCommunities");
   const { evaluateAward } = await import("@/lib/awards-engine/engine");
   const preferTab = def.window.startsWith("month:") ? def.window.slice(6) : undefined;
   const live = await loadLiveCommunities(preferTab);
