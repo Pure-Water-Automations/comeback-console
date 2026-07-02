@@ -21,7 +21,8 @@ export interface AuditRow {
   action: string;
   entity: string;
   entityId: string;
-  detail: unknown;
+  /** Raw JSON string — kept unparsed so the row serializes over server fns */
+  detail: string;
 }
 
 export type IssuanceStatus = "pending" | "approved" | "issued" | "void";
@@ -252,7 +253,7 @@ export function makeAwardsRepo(db: DB) {
         .all(limit)
         .map((r: any) => ({
           id: r.id, ts: r.ts, actor: r.actor, action: r.action,
-          entity: r.entity, entityId: r.entity_id, detail: JSON.parse(r.detail),
+          entity: r.entity, entityId: r.entity_id, detail: r.detail,
         }));
     },
   };
