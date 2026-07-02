@@ -12,17 +12,28 @@ const int = (n: number) => Math.round(n).toLocaleString("en-US");
 const signed = (n: number) => `${n > 0 ? "+" : ""}${Math.round(n)}`;
 const dash = "—";
 
-function ChipPct({ pct }: { pct: number | null }) {
-  if (pct === null) return null;
-  const good = pct >= 100;
+/**
+ * The sheet's % is GROWTH vs baseline (100 = holding steady), so it renders
+ * as a signed delta — "+19.6% vs baseline" — never as progress-to-target.
+ */
+function ChipGrowth({ growthPct }: { growthPct: number | null }) {
+  if (growthPct === null) return null;
+  const delta = growthPct - 100;
+  const flat = Math.abs(delta) < 0.05;
+  const growing = delta > 0;
   return (
     <span
+      title="The board's % — this trimester's result vs baseline"
       className={cn(
-        "border px-1.5 py-0.5 font-mono text-[10px] font-bold",
-        good ? "border-teal-200/40 bg-teal-300/10 text-teal-100" : "border-white/15 bg-white/[0.04] text-white/60",
+        "whitespace-nowrap border px-1.5 py-0.5 font-mono text-[10px] font-bold",
+        flat
+          ? "border-white/15 bg-white/[0.04] text-white/50"
+          : growing
+            ? "border-teal-200/40 bg-teal-300/10 text-teal-100"
+            : "border-white/15 bg-white/[0.04] text-white/60",
       )}
     >
-      {pct.toFixed(1)}%
+      {flat ? "· at baseline" : `${growing ? "▲" : "▼"} ${Math.abs(delta).toFixed(1)}% vs baseline`}
     </span>
   );
 }
@@ -46,24 +57,31 @@ function LaneTile({
   label, lane, money, monthLabel,
 }: { label: string; lane: LaneScore; money?: boolean; monthLabel: string }) {
   const fmt = money ? usd : int;
-  const fillPct = lane.pct === null ? 0 : Math.max(0, Math.min(100, lane.pct));
+  // The bar is progress toward TARGET (computed) — distinct from the sheet's
+  // growth-% chip above it, which compares against baseline.
+  const targetPct =
+    lane.t2Result !== null && lane.target ? (lane.t2Result / lane.target) * 100 : null;
+  const fillPct = targetPct === null ? 0 : Math.max(0, Math.min(100, targetPct));
   return (
     <div className="border border-white/10 bg-white/[0.03] p-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/50">{label}</p>
-        <span className="flex gap-1.5">
-          <ChipPct pct={lane.pct} />
-          <ChipPts points={lane.points} />
-        </span>
+      <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/50">{label}</p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        <ChipGrowth growthPct={lane.growthPct} />
+        <ChipPts points={lane.points} />
       </div>
       <p className="mt-2 font-mono text-2xl font-bold text-white">
         {lane.t2Result !== null ? fmt(lane.t2Result) : dash}
       </p>
-      <div className="mt-2 h-2 border border-white/10 bg-white/[0.04]">
+      <div
+        className="mt-2 h-2 border border-white/10 bg-white/[0.04]"
+        title={targetPct === null ? undefined : `${targetPct.toFixed(1)}% of the trimester target`}
+      >
         <div
           className={cn(
             "h-full transition-[width]",
-            fillPct >= 100 ? "bg-gradient-to-r from-teal-300 to-teal-100" : "bg-gradient-to-r from-amber-300/80 to-yellow-100/80",
+            targetPct !== null && targetPct >= 100
+              ? "bg-gradient-to-r from-teal-300 to-teal-100"
+              : "bg-gradient-to-r from-amber-300/80 to-yellow-100/80",
           )}
           style={{ width: `${fillPct}%` }}
         />
@@ -88,7 +106,7 @@ function WeeklyTile({ label, lane }: { label: string; lane: WeeklyLane }) {
     <div className="border border-white/10 bg-white/[0.03] p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/50">{label}</p>
-        {lane.pctGrowth !== null && !nothingReported ? <ChipPct pct={lane.pctGrowth} /> : null}
+        {lane.pctGrowth !== null && !nothingReported ? <ChipGrowth growthPct={lane.pctGrowth} /> : null}
       </div>
       {nothingReported ? (
         <p className="mt-4 text-sm text-white/40">Nothing reported yet this month.</p>

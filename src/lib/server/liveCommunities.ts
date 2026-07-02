@@ -156,17 +156,17 @@ function toBoard(row: string[], communityId: string): CommunityBoard {
     finance: {
       baseline: numOrNull(row, 4), target: numOrNull(row, 5),
       monthResult: numOrNull(row, 6), t2Result: numOrNull(row, 7),
-      pct: numOrNull(row, 8), points: numOrNull(row, 9),
+      growthPct: numOrNull(row, 8), points: numOrNull(row, 9),
     },
     activeMembers: {
       baseline: numOrNull(row, 32), target: numOrNull(row, 33),
       monthResult: numOrNull(row, 34), t2Result: numOrNull(row, 34),
-      pct: numOrNull(row, 35), points: numOrNull(row, 36),
+      growthPct: numOrNull(row, 35), points: numOrNull(row, 36),
     },
     blessing: {
       baseline: numOrNull(row, 37), target: numOrNull(row, 38),
       monthResult: numOrNull(row, 39), t2Result: numOrNull(row, 39),
-      pct: numOrNull(row, 40), points: numOrNull(row, 41),
+      growthPct: numOrNull(row, 40), points: numOrNull(row, 41),
     },
     sunday: {
       baseline: numOrNull(row, 10), target: numOrNull(row, 11),

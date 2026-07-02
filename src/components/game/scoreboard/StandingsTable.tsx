@@ -8,7 +8,7 @@ import { ChevronDown, Info } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CommunityBoard } from "@/lib/boardTypes";
 import { METRIC_BY_ID, type MetricDef } from "@/lib/awards-engine/metricCatalog";
-import { pctOfTarget, type RankedCommunity } from "@/lib/comebackData";
+import type { CategoryScore, RankedCommunity } from "@/lib/comebackData";
 import { cn } from "@/lib/utils";
 import { CommunityBoardCard } from "./CommunityBoardCard";
 
@@ -18,14 +18,18 @@ type ValueMode = "pts" | "pct" | "actual";
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 const int = (n: number) => Math.round(n).toLocaleString("en-US");
 const signed = (n: number) => `${n > 0 ? "+" : ""}${Math.round(n)}`;
-const pctStr = (n: number) => `${n.toFixed(1)}%`;
+
+/** Growth vs baseline — the board's own % (result ÷ baseline × 100). */
+const growthOf = (s: CategoryScore): number =>
+  s.baseline && s.result ? (s.result / s.baseline) * 100 : 0;
 
 interface Lane {
   key: Exclude<CategoryKey, "overall">;
   label: string;
   metric: MetricDef;
   pts: (c: RankedCommunity) => number;
-  pct: (c: RankedCommunity, b?: CommunityBoard) => number;
+  /** The sheet's growth-% (vs baseline); computed fallback on snapshot */
+  growth: (c: RankedCommunity, b?: CommunityBoard) => number;
   actual: (c: RankedCommunity, b?: CommunityBoard) => number;
   fmtActual: (n: number) => string;
 }
@@ -34,21 +38,21 @@ const LANES: Lane[] = [
   {
     key: "finance", label: "Income", metric: METRIC_BY_ID.finance_points,
     pts: (c) => c.financePoints,
-    pct: (c, b) => b?.finance.pct ?? pctOfTarget(c.finance),
+    growth: (c, b) => b?.finance.growthPct ?? growthOf(c.finance),
     actual: (c, b) => b?.finance.t2Result ?? c.finance.result,
     fmtActual: usd,
   },
   {
     key: "members", label: "Members", metric: METRIC_BY_ID.member_points,
     pts: (c) => c.memberPoints,
-    pct: (c, b) => b?.activeMembers.pct ?? pctOfTarget(c.activeMembers),
+    growth: (c, b) => b?.activeMembers.growthPct ?? growthOf(c.activeMembers),
     actual: (c, b) => b?.activeMembers.t2Result ?? c.activeMembers.result,
     fmtActual: int,
   },
   {
     key: "blessing", label: "Blessing", metric: METRIC_BY_ID.blessing_points,
     pts: (c) => c.blessingPoints,
-    pct: (c, b) => b?.blessing.pct ?? pctOfTarget(c.blessing),
+    growth: (c, b) => b?.blessing.growthPct ?? growthOf(c.blessing),
     actual: (c, b) => b?.blessing.t2Result ?? c.blessing.result,
     fmtActual: int,
   },
@@ -61,42 +65,52 @@ const CATEGORIES: { key: CategoryKey; label: string }[] = [
 
 const MODES: { key: ValueMode; label: string; hint: string }[] = [
   { key: "pts", label: "Points", hint: "Campaign points: growth % over baseline × 10" },
-  { key: "pct", label: "% of Target", hint: "Progress toward the trimester target" },
+  { key: "pct", label: "% Growth", hint: "The board's own % — this trimester's result vs baseline" },
   { key: "actual", label: "Actuals", hint: "The real numbers behind the score" },
 ];
 
-function ProvenanceInfo({ metric }: { metric: MetricDef }) {
+const GROWTH_PROVENANCE = {
+  label: "% Growth (the board's %)",
+  sourceDescription:
+    "The scoreboard's own % column: this trimester's result ÷ the community's baseline × 100. 100% means holding steady at baseline — it is NOT progress toward the target. Points come straight from it: (% − 100) × 10.",
+  updateCadence: "Weekly — pastors log results on the regional scoreboard",
+};
+
+interface ProvenanceContent {
+  label: string;
+  sourceDescription: string;
+  updateCadence: string;
+}
+
+function ProvenanceInfo({ content }: { content: ProvenanceContent }) {
   return (
     <Popover>
       <PopoverTrigger
-        aria-label={`How is ${metric.label} calculated?`}
+        aria-label={`How is ${content.label} calculated?`}
         className="inline-flex text-white/40 transition-colors hover:text-white"
       >
         <Info className="size-3.5" />
       </PopoverTrigger>
       <PopoverContent className="w-72 border-white/15 bg-black/90 text-white backdrop-blur-md">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-signal">{metric.label}</p>
-        <p className="mt-2 text-xs leading-5 text-white/70">{metric.sourceDescription}</p>
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-signal">{content.label}</p>
+        <p className="mt-2 text-xs leading-5 text-white/70">{content.sourceDescription}</p>
         <p className="mt-2 text-[10px] uppercase tracking-[0.24em] text-white/40">
-          Updates: {metric.updateCadence}
+          Updates: {content.updateCadence}
         </p>
       </PopoverContent>
     </Popover>
   );
 }
 
-function PctCell({ value }: { value: number }) {
-  const fill = Math.max(0, Math.min(100, value));
+/** Growth vs baseline: ▲ growing (teal), ▼ shrinking (muted), · flat. */
+function GrowthCell({ value }: { value: number }) {
+  const delta = value - 100;
+  if (Math.abs(delta) < 0.05) return <span className="font-mono text-white/40">· 0.0%</span>;
+  const growing = delta > 0;
   return (
-    <div className="flex items-center justify-end gap-2">
-      <div className="h-1.5 w-16 border border-white/10 bg-white/[0.04]">
-        <div
-          className={cn("h-full", value >= 100 ? "bg-teal-300" : "bg-amber-300/80")}
-          style={{ width: `${fill}%` }}
-        />
-      </div>
-      <span className={cn("font-mono", value >= 100 ? "text-teal-100" : "text-white/70")}>{pctStr(value)}</span>
-    </div>
+    <span className={cn("font-mono", growing ? "text-teal-100" : "text-white/60")}>
+      {growing ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
+    </span>
   );
 }
 
@@ -114,7 +128,7 @@ function columnsFor(category: CategoryKey, mode: ValueMode): Column[] {
       ];
     }
     if (mode === "pct") {
-      return LANES.map((l) => ({ header: `${l.label} %`, render: (c: RankedCommunity, b?: CommunityBoard) => <PctCell value={l.pct(c, b)} /> }));
+      return LANES.map((l) => ({ header: `${l.label} growth`, render: (c: RankedCommunity, b?: CommunityBoard) => <GrowthCell value={l.growth(c, b)} /> }));
     }
     return LANES.map((l) => ({ header: l.label, render: (c: RankedCommunity, b?: CommunityBoard) => <span className="font-mono">{l.fmtActual(l.actual(c, b))}</span> }));
   }
@@ -126,7 +140,7 @@ function columnsFor(category: CategoryKey, mode: ValueMode): Column[] {
     ];
   }
   if (mode === "pct") {
-    return [{ header: "% of target", render: (c, b) => <PctCell value={lane.pct(c, b)} /> }];
+    return [{ header: "Growth vs baseline", render: (c, b) => <GrowthCell value={lane.growth(c, b)} /> }];
   }
   return [
     { header: "Baseline", render: (c, b) => <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "baseline")}</span> },
@@ -144,12 +158,12 @@ function fmtLaneField(lane: Lane, b: CommunityBoard | undefined, c: RankedCommun
 
 function rankValue(c: RankedCommunity, b: CommunityBoard | undefined, category: CategoryKey, mode: ValueMode): number {
   if (category === "overall") {
-    if (mode === "pct") return LANES.reduce((s, l) => s + l.pct(c, b), 0) / LANES.length;
+    if (mode === "pct") return LANES.reduce((s, l) => s + l.growth(c, b), 0) / LANES.length;
     return c.points;
   }
   const lane = LANES.find((l) => l.key === category)!;
   if (mode === "pts") return lane.pts(c);
-  if (mode === "pct") return lane.pct(c, b);
+  if (mode === "pct") return lane.growth(c, b);
   return lane.actual(c, b);
 }
 
@@ -162,6 +176,7 @@ export function StandingsTable({
 
   const activeMetric =
     category === "overall" ? METRIC_BY_ID.total_points : LANES.find((l) => l.key === category)!.metric;
+  const provenance: ProvenanceContent = mode === "pct" ? GROWTH_PROVENANCE : activeMetric;
 
   const rows = useMemo(
     () =>
@@ -182,7 +197,7 @@ export function StandingsTable({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-bold uppercase tracking-[0.32em] text-white">Full Standings</h3>
-          <ProvenanceInfo metric={activeMetric} />
+          <ProvenanceInfo content={provenance} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-px border border-white/10">

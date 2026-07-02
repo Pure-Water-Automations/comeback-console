@@ -10,8 +10,12 @@ export interface LaneScore {
   monthResult: number | null;
   /** Cumulative trimester result where the sheet tracks one */
   t2Result: number | null;
-  /** The sheet's own % cell for this lane */
-  pct: number | null;
+  /**
+   * The sheet's own % cell for this lane — GROWTH vs baseline (result ÷
+   * baseline × 100), NOT progress toward target. 100 = holding at baseline;
+   * points = (growthPct − 100) × 10.
+   */
+  growthPct: number | null;
   /** The sheet's own points cell (finance / members / blessing only) */
   points: number | null;
 }

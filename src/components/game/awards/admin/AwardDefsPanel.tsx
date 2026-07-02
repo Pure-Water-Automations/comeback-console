@@ -20,7 +20,15 @@ const EVALUATORS: { id: EvaluatorId; label: string; hint: string }[] = [
 
 const TONES = ["gold", "teal", "violet", "rose", "blue"] as const;
 const SIZES = ["Extra Large", "Medium", "Small", "Family Group"] as const;
-const WINDOWS = ["campaign", "latest-week", "month:June 2026", "month:May 2026"];
+
+// The sheet gains a tab every month ("June 2026", "July 2026", …), so month
+// windows are derived from today's date: current month + the three before it.
+const monthWindow = (offset: number) => {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+  return `month:${d.toLocaleString("en-US", { month: "long" })} ${d.getFullYear()}`;
+};
+const WINDOWS = ["campaign", "latest-week", monthWindow(0), monthWindow(1), monthWindow(2), monthWindow(3)];
 
 const EMPTY_DEF: AwardDef = {
   id: "", name: "", subtitle: "", emoji: "🏆", tone: "gold",
@@ -250,7 +258,9 @@ export function AwardDefsPanel({
               </Field>
               <Field label="Window">
                 <select className={inputCls} value={editing.window} onChange={(e) => upd({ window: e.target.value })}>
-                  {WINDOWS.map((w) => <option key={w} value={w}>{w}</option>)}
+                  {(WINDOWS.includes(editing.window) ? WINDOWS : [editing.window, ...WINDOWS]).map((w) => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
                 </select>
               </Field>
               <Field label="Scope">
