@@ -14,6 +14,7 @@ import { Route as NjRouteImport } from './routes/nj'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AwardsRouteImport } from './routes/awards'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AwardsAdminRouteImport } from './routes/awards_.admin'
 
 const ScoreboardRoute = ScoreboardRouteImport.update({
   id: '/scoreboard',
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AwardsAdminRoute = AwardsAdminRouteImport.update({
+  id: '/awards_/admin',
+  path: '/awards/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/nj': typeof NjRoute
   '/scoreboard': typeof ScoreboardRoute
+  '/awards/admin': typeof AwardsAdminRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/nj': typeof NjRoute
   '/scoreboard': typeof ScoreboardRoute
+  '/awards/admin': typeof AwardsAdminRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,27 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/nj': typeof NjRoute
   '/scoreboard': typeof ScoreboardRoute
+  '/awards_/admin': typeof AwardsAdminRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/awards' | '/dashboard' | '/nj' | '/scoreboard'
+  fullPaths:
+    | '/'
+    | '/awards'
+    | '/dashboard'
+    | '/nj'
+    | '/scoreboard'
+    | '/awards/admin'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/awards' | '/dashboard' | '/nj' | '/scoreboard'
-  id: '__root__' | '/' | '/awards' | '/dashboard' | '/nj' | '/scoreboard'
+  to: '/' | '/awards' | '/dashboard' | '/nj' | '/scoreboard' | '/awards/admin'
+  id:
+    | '__root__'
+    | '/'
+    | '/awards'
+    | '/dashboard'
+    | '/nj'
+    | '/scoreboard'
+    | '/awards_/admin'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +99,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   NjRoute: typeof NjRoute
   ScoreboardRoute: typeof ScoreboardRoute
+  AwardsAdminRoute: typeof AwardsAdminRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +139,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/awards_/admin': {
+      id: '/awards_/admin'
+      path: '/awards/admin'
+      fullPath: '/awards/admin'
+      preLoaderRoute: typeof AwardsAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +155,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   NjRoute: NjRoute,
   ScoreboardRoute: ScoreboardRoute,
+  AwardsAdminRoute: AwardsAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
