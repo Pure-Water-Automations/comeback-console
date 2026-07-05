@@ -299,7 +299,13 @@ function SectionShell({
   );
 }
 
-function HeroHeader({ leader, communityCount }: { leader: RankedCommunity; communityCount: number }) {
+function HeroHeader({
+  leader,
+  communityCount,
+}: {
+  leader: RankedCommunity;
+  communityCount: number;
+}) {
   const daysRemaining = useDaysRemaining();
   const trimesterRange = `${formatDate(TRIMESTER.start)} - ${formatDate(TRIMESTER.end, true)}`;
 
@@ -326,7 +332,11 @@ function HeroHeader({ leader, communityCount }: { leader: RankedCommunity; commu
             {"T2 LEAGUE STANDINGS".split(" ").map((word, wordIndex) => (
               <span className="block overflow-hidden" key={word}>
                 <motion.span
-                  className="inline-block"
+                  className={cn(
+                    "inline-block",
+                    wordIndex > 0 &&
+                      "bg-[linear-gradient(110deg,#ffffff_20%,#fde68a_38%,#fff8e1_50%,#fde68a_62%,#ffffff_80%)] bg-[size:220%_auto] bg-clip-text text-transparent [animation:shimmer_7s_linear_1.2s_infinite]",
+                  )}
                   initial={{ y: "115%" }}
                   animate={{ y: "0%" }}
                   transition={{
@@ -364,40 +374,60 @@ function HeroHeader({ leader, communityCount }: { leader: RankedCommunity; commu
             </div>
           </motion.div>
         </div>
-        <motion.aside
-          className="border border-white/10 bg-black/60 p-6 shadow-[0_0_34px_rgba(45,212,191,0.16)] backdrop-blur-md"
+        <motion.div
+          className="relative"
           initial={{ opacity: 0, x: 28 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, delay: 0.85, ease: EASE }}
         >
-          <p className="mb-6 text-xs uppercase tracking-[0.34em] text-amber-200/80">
-            League leader
-          </p>
-          <motion.img
-            src={communitySprite(leader, "hero")}
-            alt={`${leader.shortName} leader`}
-            className={cn(
-              "mx-auto mb-4 h-48 w-48 object-contain drop-shadow-2xl md:h-64 md:w-64",
-              !communityIsLeaderArt(leader) && "[image-rendering:pixelated]",
-            )}
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 0.9, repeat: Infinity }}
+          <div
+            className="pointer-events-none absolute -top-[140px] left-1/2 h-[200px] w-[340px] [animation:beam-sway_7s_ease-in-out_infinite] [clip-path:polygon(42%_0,58%_0,100%_100%,0_100%)]"
+            style={{
+              background: "linear-gradient(to bottom, rgba(253,230,138,0.22), transparent 85%)",
+            }}
           />
-          <div className="border-t border-white/10 pt-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm uppercase tracking-[0.32em] text-white/40">Rank 01</p>
-                <h2 className="mt-2 text-3xl font-bold uppercase text-white">{leader.shortName}</h2>
-              </div>
-              <Trophy className="mt-1 size-9 text-amber-200" />
-            </div>
-            <CountUpPoints
-              value={leader.points}
-              delay={0.25}
-              className="mt-5 block font-mono text-5xl font-bold text-amber-100"
+          <div className="relative overflow-hidden p-px">
+            <span
+              className="absolute -inset-[40%] [animation:spin-ring_5s_linear_infinite]"
+              style={{
+                background:
+                  "conic-gradient(from 0deg, rgba(253,230,138,0), rgba(253,230,138,0.9), rgba(255,255,255,0.9), rgba(253,230,138,0), rgba(253,230,138,0))",
+              }}
             />
+            <aside className="relative bg-[#0c0c10] p-6 shadow-[inset_0_0_60px_rgba(234,179,8,0.18)]">
+              <p className="mb-6 flex items-center gap-2.5 text-xs uppercase tracking-[0.34em] text-amber-200/80">
+                <span className="inline-block size-2 bg-amber-200 shadow-[0_0_12px_rgba(253,230,138,0.9)] [animation:glow-pulse_1.6s_ease-in-out_infinite]" />
+                League leader
+              </p>
+              <motion.img
+                src={communitySprite(leader, "hero")}
+                alt={`${leader.shortName} leader`}
+                className={cn(
+                  "mx-auto mb-4 h-48 w-48 object-contain drop-shadow-2xl md:h-64 md:w-64",
+                  !communityIsLeaderArt(leader) && "[image-rendering:pixelated]",
+                )}
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 0.9, repeat: Infinity }}
+              />
+              <div className="border-t border-white/10 pt-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.32em] text-white/40">Rank 01</p>
+                    <h2 className="mt-2 text-3xl font-bold uppercase text-white">
+                      {leader.shortName}
+                    </h2>
+                  </div>
+                  <Trophy className="mt-1 size-9 text-amber-200" />
+                </div>
+                <CountUpPoints
+                  value={leader.points}
+                  delay={0.25}
+                  className="mt-5 block font-mono text-5xl font-bold text-amber-100"
+                />
+              </div>
+            </aside>
           </div>
-        </motion.aside>
+        </motion.div>
       </div>
     </section>
   );
@@ -418,8 +448,11 @@ function PodiumSection({ standings }: { standings: RankedCommunity[] }) {
     { community: topThree[1], place: 2 as const, pedestal: 176, delay: 0.1 },
     { community: topThree[0], place: 1 as const, pedestal: 230, delay: 0 },
     { community: topThree[2], place: 3 as const, pedestal: 142, delay: 0.2 },
-  ].filter((slot): slot is { community: RankedCommunity; place: 1 | 2 | 3; pedestal: number; delay: number } =>
-    Boolean(slot.community),
+  ].filter(
+    (
+      slot,
+    ): slot is { community: RankedCommunity; place: 1 | 2 | 3; pedestal: number; delay: number } =>
+      Boolean(slot.community),
   );
 
   return (
@@ -877,7 +910,11 @@ export function ScoreboardPage() {
       <div className="relative z-10 mx-auto w-full max-w-7xl px-5 md:px-12 lg:px-16 py-8 md:py-12">
         <div className="mb-6 flex justify-center">
           <span
-            title={scoreboardQuery.data ? `Checked ${new Date(scoreboardQuery.data.generatedAt).toLocaleString("en-US")}` : undefined}
+            title={
+              scoreboardQuery.data
+                ? `Checked ${new Date(scoreboardQuery.data.generatedAt).toLocaleString("en-US")}`
+                : undefined
+            }
             className={cn(
               "inline-flex items-center gap-2 border px-3 py-1 text-[10px] font-bold uppercase tracking-[0.28em]",
               dataSource === "live"
@@ -893,7 +930,10 @@ export function ScoreboardPage() {
       <PodiumSection standings={standings} />
       <StandingsSection standings={standings} />
       <div className="relative z-10 mx-auto w-full max-w-7xl space-y-4 px-5 py-8 md:px-12 md:py-12 lg:px-16">
-        <ScoreboardCharts standings={standings} sourceKey={`${dataSource}-${dataMonth ?? "none"}`} />
+        <ScoreboardCharts
+          standings={standings}
+          sourceKey={`${dataSource}-${dataMonth ?? "none"}`}
+        />
         <StandingsTable
           standings={standings}
           boards={scoreboardQuery.data?.boards ?? {}}
