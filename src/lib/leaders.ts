@@ -32,7 +32,6 @@ import norikoTenepre from "@/assets/sprites/leaders/noriko-tenepre.png";
 import shizukoIwaya from "@/assets/sprites/leaders/shizuko-iwaya.png";
 import shotaIwasaki from "@/assets/sprites/leaders/shota-iwasaki.png";
 import simoneDoroski from "@/assets/sprites/leaders/simone-doroski.png";
-import stephenGalvan from "@/assets/sprites/leaders/stephen-galvan.png";
 import takayoshiMiyamoto from "@/assets/sprites/leaders/takayoshi-miyamoto.png";
 import tomCorley from "@/assets/sprites/leaders/tom-corley.png";
 
@@ -50,37 +49,187 @@ export interface Leader {
 // Full roster — usable for a directory, the NJ party panel, etc.
 export const LEADERS: Leader[] = [
   // ── Community leads (the face of each community) ──────────────────────────
-  { slug: "barbara-robertson", name: "Barbara Robertson", title: "Lead Pastor — New Jersey", sprite: barbaraRobertson, communityId: "new-jersey" },
-  { slug: "kazuhide-kikuchi", name: "Kazuhide Kikuchi", title: "Pastor — Belvedere", sprite: kazuhideKikuchi, communityId: "belvedere" },
-  { slug: "hoonmoon-choi", name: "Hoonmoon Choi", title: "Pastor / National KEA President", sprite: hoonmoonChoi, communityId: "new-york-kea" },
-  { slug: "joshua-gurtatowski", name: "Joshua Gurtatowski", title: "Interim Pastor — Manhattan", sprite: joshuaGurtatowski, communityId: "manhattan" },
-  { slug: "simone-doroski", name: "Simone Doroski", title: "Pastor — Connecticut", sprite: simoneDoroski, communityId: "connecticut" },
-  { slug: "miilhan-stephens", name: "Miilhan Stephens", title: "Pastor — Boston", sprite: miilhanStephens, communityId: "boston" },
-  { slug: "shota-iwasaki", name: "Shota Iwasaki", title: "Pastor — Philadelphia", sprite: shotaIwasaki, communityId: "philadelphia" },
-  { slug: "takayoshi-miyamoto", name: "Takayoshi Miyamoto", title: "Pastor — Queens", sprite: takayoshiMiyamoto, communityId: "queens" },
-  { slug: "leonita-machado", name: "Leonita Machado", title: "Pastor — Worcester", sprite: leonitaMachado, communityId: "worcester" },
-  { slug: "emiljun-rapada", name: "Emiljun Rapada", title: "Pastor — Elizabeth", sprite: emiljunRapada, communityId: "elizabeth" },
-  { slug: "stephen-galvan", name: "Stephen Galvan", title: "Pastor — Bronx", sprite: stephenGalvan, communityId: "bronx" },
-  { slug: "lloyd-pumphrey", name: "Lloyd Pumphrey", title: "Interim Pastor — Albany", sprite: lloydPumphrey, communityId: "albany" }, // The directory also lists Sebastian Huemer as Albany pastor, but only Pumphrey has sprite art in the export.
-  { slug: "mark-beaudoin", name: "Mark Beaudoin", title: "Pastor — Rhode Island", sprite: markBeaudoin, communityId: "rhode-island" },
-  { slug: "tom-corley", name: "Tom Corley", title: "Pastor — Long Island", sprite: tomCorley, communityId: "long-island" },
-  { slug: "gregory-odlin", name: "Gregory Odlin", title: "Pastor — Maine", sprite: gregoryOdlin, communityId: "maine" },
-  { slug: "mara-allaire", name: "Mara Allaire", title: "Pastor — New Hampshire", sprite: maraAllaire, communityId: "new-hampshire" },
-  { slug: "ibrahim-hamed", name: "Ibrahim Hamed", title: "Pastor — Vermont", sprite: ibrahimHamed, communityId: "vermont" },
+  {
+    slug: "barbara-robertson",
+    name: "Barbara Robertson",
+    title: "Lead Pastor — New Jersey",
+    sprite: barbaraRobertson,
+    communityId: "new-jersey",
+  },
+  {
+    slug: "kazuhide-kikuchi",
+    name: "Kazuhide Kikuchi",
+    title: "Pastor — Belvedere",
+    sprite: kazuhideKikuchi,
+    communityId: "belvedere",
+  },
+  {
+    slug: "hoonmoon-choi",
+    name: "Hoonmoon Choi",
+    title: "Pastor / National KEA President",
+    sprite: hoonmoonChoi,
+    communityId: "new-york-kea",
+  },
+  {
+    slug: "joshua-gurtatowski",
+    name: "Joshua Gurtatowski",
+    title: "Interim Pastor — Manhattan",
+    sprite: joshuaGurtatowski,
+    communityId: "manhattan",
+  },
+  {
+    slug: "simone-doroski",
+    name: "Simone Doroski",
+    title: "Pastor — Connecticut",
+    sprite: simoneDoroski,
+    communityId: "connecticut",
+  },
+  {
+    slug: "miilhan-stephens",
+    name: "Miilhan Stephens",
+    title: "Pastor — Boston",
+    sprite: miilhanStephens,
+    communityId: "boston",
+  },
+  {
+    slug: "shota-iwasaki",
+    name: "Shota Iwasaki",
+    title: "Pastor — Philadelphia",
+    sprite: shotaIwasaki,
+    communityId: "philadelphia",
+  },
+  {
+    slug: "takayoshi-miyamoto",
+    name: "Takayoshi Miyamoto",
+    title: "Pastor — Queens",
+    sprite: takayoshiMiyamoto,
+    communityId: "queens",
+  },
+  {
+    slug: "leonita-machado",
+    name: "Leonita Machado",
+    title: "Pastor — Worcester",
+    sprite: leonitaMachado,
+    communityId: "worcester",
+  },
+  {
+    slug: "emiljun-rapada",
+    name: "Emiljun Rapada",
+    title: "Pastor — Elizabeth",
+    sprite: emiljunRapada,
+    communityId: "elizabeth",
+  },
+  {
+    slug: "lloyd-pumphrey",
+    name: "Lloyd Pumphrey",
+    title: "Interim Pastor — Albany",
+    sprite: lloydPumphrey,
+    communityId: "albany",
+  }, // The directory also lists Sebastian Huemer as Albany pastor, but only Pumphrey has sprite art in the export.
+  {
+    slug: "mark-beaudoin",
+    name: "Mark Beaudoin",
+    title: "Pastor — Rhode Island",
+    sprite: markBeaudoin,
+    communityId: "rhode-island",
+  },
+  {
+    slug: "tom-corley",
+    name: "Tom Corley",
+    title: "Pastor — Long Island",
+    sprite: tomCorley,
+    communityId: "long-island",
+  },
+  {
+    slug: "gregory-odlin",
+    name: "Gregory Odlin",
+    title: "Pastor — Maine",
+    sprite: gregoryOdlin,
+    communityId: "maine",
+  },
+  {
+    slug: "mara-allaire",
+    name: "Mara Allaire",
+    title: "Pastor — New Hampshire",
+    sprite: maraAllaire,
+    communityId: "new-hampshire",
+  },
+  {
+    slug: "ibrahim-hamed",
+    name: "Ibrahim Hamed",
+    title: "Pastor — Vermont",
+    sprite: ibrahimHamed,
+    communityId: "vermont",
+  },
 
   // ── Assistant / secondary community leaders ───────────────────────────────
-  { slug: "atsushi-takino", name: "Atsushi Takino", title: "Assistant Pastor — New Jersey", sprite: atsushiTakino, supportsCommunityId: "new-jersey" },
-  { slug: "mika-rothstein", name: "Mika Rothstein", title: "Assistant Pastor — Belvedere", sprite: mikaRothstein, supportsCommunityId: "belvedere" },
-  { slug: "noriko-tenepre", name: "Noriko Tenepre", title: "Assistant Pastor — Elizabeth", sprite: norikoTenepre, supportsCommunityId: "elizabeth" },
-  { slug: "clementino-gavilan", name: "Clementino Gavilan", title: "Pastor — Bronx", sprite: clementinoGavilan, supportsCommunityId: "bronx" },
+  {
+    slug: "atsushi-takino",
+    name: "Atsushi Takino",
+    title: "Assistant Pastor — New Jersey",
+    sprite: atsushiTakino,
+    supportsCommunityId: "new-jersey",
+  },
+  {
+    slug: "mika-rothstein",
+    name: "Mika Rothstein",
+    title: "Assistant Pastor — Belvedere",
+    sprite: mikaRothstein,
+    supportsCommunityId: "belvedere",
+  },
+  {
+    slug: "noriko-tenepre",
+    name: "Noriko Tenepre",
+    title: "Assistant Pastor — Elizabeth",
+    sprite: norikoTenepre,
+    supportsCommunityId: "elizabeth",
+  },
+  {
+    slug: "clementino-gavilan",
+    name: "Clementino Gavilan",
+    title: "Pastor — Bronx",
+    sprite: clementinoGavilan,
+    communityId: "bronx",
+  },
 
   // ── Regional / national staff (no single community) ───────────────────────
-  { slug: "demian-dunkley", name: "Rev. Demian Dunkley", title: "Regional President", sprite: demianDunkley },
-  { slug: "daniel-rendel", name: "Rev. Daniel Rendel", title: "Regional Leadership", sprite: danielRendel },
-  { slug: "gregory-breland", name: "Gregory Breland", title: "NE Regional Coordinator", sprite: gregoryBreland },
-  { slug: "justin-okamoto", name: "Justin Okamoto", title: "Regional Staff (former Belvedere Pastor)", sprite: justinOkamoto, supportsCommunityId: "belvedere" },
-  { slug: "landon-doroski", name: "Landon Doroski", title: "NE Blessing & Family Ministry", sprite: landonDoroski },
-  { slug: "shizuko-iwaya", name: "Shizuko Iwaya", title: "Regional Book-Keeper", sprite: shizukoIwaya },
+  {
+    slug: "demian-dunkley",
+    name: "Rev. Demian Dunkley",
+    title: "Regional President",
+    sprite: demianDunkley,
+  },
+  {
+    slug: "daniel-rendel",
+    name: "Rev. Daniel Rendel",
+    title: "Regional Leadership",
+    sprite: danielRendel,
+  },
+  {
+    slug: "gregory-breland",
+    name: "Gregory Breland",
+    title: "NE Regional Coordinator",
+    sprite: gregoryBreland,
+  },
+  {
+    slug: "justin-okamoto",
+    name: "Justin Okamoto",
+    title: "Regional Staff (former Belvedere Pastor)",
+    sprite: justinOkamoto,
+    supportsCommunityId: "belvedere",
+  },
+  {
+    slug: "landon-doroski",
+    name: "Landon Doroski",
+    title: "NE Blessing & Family Ministry",
+    sprite: landonDoroski,
+  },
+  {
+    slug: "shizuko-iwaya",
+    name: "Shizuko Iwaya",
+    title: "Regional Book-Keeper",
+    sprite: shizukoIwaya,
+  },
   { slug: "kiyoka-komiya", name: "Kiyoka Komiya", title: "Regional Staff", sprite: kiyokaKomiya },
   { slug: "nadya-kazak", name: "Nadya Kazak", title: "Regional Staff", sprite: nadyaKazak },
 ];

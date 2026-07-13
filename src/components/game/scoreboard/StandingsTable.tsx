@@ -40,21 +40,27 @@ interface Lane {
 
 const LANES: Lane[] = [
   {
-    key: "finance", label: "Income", metric: METRIC_BY_ID.finance_points,
+    key: "finance",
+    label: "Income",
+    metric: METRIC_BY_ID.finance_points,
     pts: (c) => c.financePoints,
     growth: (c, b) => b?.finance.growthPct ?? growthOf(c.finance),
     actual: (c, b) => b?.finance.t2Result ?? c.finance.result,
     fmtActual: usd,
   },
   {
-    key: "members", label: "Members", metric: METRIC_BY_ID.member_points,
+    key: "members",
+    label: "Members",
+    metric: METRIC_BY_ID.member_points,
     pts: (c) => c.memberPoints,
     growth: (c, b) => b?.activeMembers.growthPct ?? growthOf(c.activeMembers),
     actual: (c, b) => b?.activeMembers.t2Result ?? c.activeMembers.result,
     fmtActual: int,
   },
   {
-    key: "blessing", label: "Blessing", metric: METRIC_BY_ID.blessing_points,
+    key: "blessing",
+    label: "Blessing",
+    metric: METRIC_BY_ID.blessing_points,
     pts: (c) => c.blessingPoints,
     growth: (c, b) => b?.blessing.growthPct ?? growthOf(c.blessing),
     actual: (c, b) => b?.blessing.t2Result ?? c.blessing.result,
@@ -69,7 +75,11 @@ const CATEGORIES: { key: CategoryKey; label: string }[] = [
 
 const MODES: { key: ValueMode; label: string; hint: string }[] = [
   { key: "pts", label: "Points", hint: "Campaign points: growth % over baseline × 10" },
-  { key: "pct", label: "% Growth", hint: "The board's own % — this trimester's result vs baseline" },
+  {
+    key: "pct",
+    label: "% Growth",
+    hint: "The board's own % — this trimester's result vs baseline",
+  },
   { key: "actual", label: "Actuals", hint: "The real numbers behind the score" },
 ];
 
@@ -133,53 +143,141 @@ function fmtActualOrDash(lane: Pick<Lane, "fmtActual">, value: number | null): s
 interface Column {
   header: string;
   render: (c: RankedCommunity, b?: CommunityBoard) => React.ReactNode;
+  /** Numeric value the column sorts on (higher = better) when its header is clicked. */
+  sortValue: (c: RankedCommunity, b?: CommunityBoard) => number;
 }
 
 function columnsFor(category: CategoryKey, mode: ValueMode): Column[] {
   if (category === "overall") {
     if (mode === "pts") {
       return [
-        ...LANES.map((l) => ({ header: `${l.label} pts`, render: (c: RankedCommunity) => <span className="font-mono">{signed(l.pts(c))}</span> })),
-        { header: "Total pts", render: (c) => <span className="font-mono font-bold text-white">{signed(c.points)}</span> },
+        ...LANES.map((l) => ({
+          header: `${l.label} pts`,
+          render: (c: RankedCommunity) => <span className="font-mono">{signed(l.pts(c))}</span>,
+          sortValue: (c: RankedCommunity) => l.pts(c),
+        })),
+        {
+          header: "Total pts",
+          render: (c) => <span className="font-mono font-bold text-white">{signed(c.points)}</span>,
+          sortValue: (c) => c.points,
+        },
       ];
     }
     if (mode === "pct") {
-      return LANES.map((l) => ({ header: `${l.label} growth`, render: (c: RankedCommunity, b?: CommunityBoard) => <GrowthCell value={l.growth(c, b)} /> }));
+      return LANES.map((l) => ({
+        header: `${l.label} growth`,
+        render: (c: RankedCommunity, b?: CommunityBoard) => <GrowthCell value={l.growth(c, b)} />,
+        sortValue: (c: RankedCommunity, b?: CommunityBoard) => l.growth(c, b) ?? 100,
+      }));
     }
-    return LANES.map((l) => ({ header: l.label, render: (c: RankedCommunity, b?: CommunityBoard) => <span className="font-mono">{fmtActualOrDash(l, l.actual(c, b))}</span> }));
+    return LANES.map((l) => ({
+      header: l.label,
+      render: (c: RankedCommunity, b?: CommunityBoard) => (
+        <span className="font-mono">{fmtActualOrDash(l, l.actual(c, b))}</span>
+      ),
+      sortValue: (c: RankedCommunity, b?: CommunityBoard) => l.actual(c, b) ?? 0,
+    }));
   }
   const lane = LANES.find((l) => l.key === category)!;
   if (mode === "pts") {
     return [
-      { header: `${lane.label} pts`, render: (c) => <span className="font-mono font-bold text-white">{signed(lane.pts(c))}</span> },
-      { header: "Total pts", render: (c) => <span className="font-mono text-white/60">{signed(c.points)}</span> },
+      {
+        header: `${lane.label} pts`,
+        render: (c) => (
+          <span className="font-mono font-bold text-white">{signed(lane.pts(c))}</span>
+        ),
+        sortValue: (c) => lane.pts(c),
+      },
+      {
+        header: "Total pts",
+        render: (c) => <span className="font-mono text-white/60">{signed(c.points)}</span>,
+        sortValue: (c) => c.points,
+      },
     ];
   }
   if (mode === "pct") {
-    return [{ header: "Growth vs baseline", render: (c, b) => <GrowthCell value={lane.growth(c, b)} /> }];
+    return [
+      {
+        header: "Growth vs baseline",
+        render: (c, b) => <GrowthCell value={lane.growth(c, b)} />,
+        sortValue: (c, b) => lane.growth(c, b) ?? 100,
+      },
+    ];
   }
   return [
-    { header: "Baseline", render: (c, b) => <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "baseline")}</span> },
-    { header: "Current", render: (c, b) => <span className="font-mono font-bold text-white">{fmtActualOrDash(lane, lane.actual(c, b))}</span> },
-    { header: "Target", render: (c, b) => <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "target")}</span> },
+    {
+      header: "Baseline",
+      render: (c, b) => (
+        <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "baseline")}</span>
+      ),
+      sortValue: (c, b) => laneFieldNum(lane, b, c, "baseline"),
+    },
+    {
+      header: "Current",
+      render: (c, b) => (
+        <span className="font-mono font-bold text-white">
+          {fmtActualOrDash(lane, lane.actual(c, b))}
+        </span>
+      ),
+      sortValue: (c, b) => lane.actual(c, b) ?? 0,
+    },
+    {
+      header: "Target",
+      render: (c, b) => (
+        <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "target")}</span>
+      ),
+      sortValue: (c, b) => laneFieldNum(lane, b, c, "target"),
+    },
   ];
 }
 
-function fmtLaneField(lane: Lane, b: CommunityBoard | undefined, c: RankedCommunity, field: "baseline" | "target"): string {
-  const boardLane = b ? { finance: b.finance, members: b.activeMembers, blessing: b.blessing }[lane.key] : undefined;
-  const fallback = { finance: c.finance, members: c.activeMembers, blessing: c.blessing }[lane.key][field];
-  const v = boardLane?.[field] ?? fallback;
+function laneFieldNum(
+  lane: Lane,
+  b: CommunityBoard | undefined,
+  c: RankedCommunity,
+  field: "baseline" | "target",
+): number {
+  const boardLane = b
+    ? { finance: b.finance, members: b.activeMembers, blessing: b.blessing }[lane.key]
+    : undefined;
+  const fallback = { finance: c.finance, members: c.activeMembers, blessing: c.blessing }[lane.key][
+    field
+  ];
+  return boardLane?.[field] ?? fallback ?? 0;
+}
+
+function fmtLaneField(
+  lane: Lane,
+  b: CommunityBoard | undefined,
+  c: RankedCommunity,
+  field: "baseline" | "target",
+): string {
+  const v = laneFieldNum(lane, b, c, field);
   return v ? lane.fmtActual(v) : "—";
 }
+
+/** Size-tier order for the sortable Size column (largest → smallest). */
+const SIZE_ORDER: Record<string, number> = {
+  "Extra Large": 4,
+  Medium: 3,
+  Small: 2,
+  "Family Group": 1,
+};
 
 /**
  * Sort keys need a real number even for a "Pending" lane. 100 is the neutral
  * substitute for growth (0% delta vs baseline — neither rewards nor punishes
  * not having reported yet); 0 is the neutral substitute for a raw actual.
  */
-function rankValue(c: RankedCommunity, b: CommunityBoard | undefined, category: CategoryKey, mode: ValueMode): number {
+function rankValue(
+  c: RankedCommunity,
+  b: CommunityBoard | undefined,
+  category: CategoryKey,
+  mode: ValueMode,
+): number {
   if (category === "overall") {
-    if (mode === "pct") return LANES.reduce((s, l) => s + (l.growth(c, b) ?? 100), 0) / LANES.length;
+    if (mode === "pct")
+      return LANES.reduce((s, l) => s + (l.growth(c, b) ?? 100), 0) / LANES.length;
     return c.points;
   }
   const lane = LANES.find((l) => l.key === category)!;
@@ -189,35 +287,83 @@ function rankValue(c: RankedCommunity, b: CommunityBoard | undefined, category: 
 }
 
 export function StandingsTable({
-  standings, boards, monthLabel,
-}: { standings: RankedCommunity[]; boards: Record<string, CommunityBoard>; monthLabel: string }) {
+  standings,
+  boards,
+  monthLabel,
+}: {
+  standings: RankedCommunity[];
+  boards: Record<string, CommunityBoard>;
+  monthLabel: string;
+}) {
   const [category, setCategory] = useState<CategoryKey>("overall");
   const [mode, setMode] = useState<ValueMode>("pts");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // null = default order (by the active category/mode via rankValue). A header
+  // click switches to an explicit column sort; changing category/mode resets it.
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
 
   const activeMetric =
-    category === "overall" ? METRIC_BY_ID.total_points : LANES.find((l) => l.key === category)!.metric;
+    category === "overall"
+      ? METRIC_BY_ID.total_points
+      : LANES.find((l) => l.key === category)!.metric;
   const provenance: ProvenanceContent = mode === "pct" ? GROWTH_PROVENANCE : activeMetric;
 
-  const rows = useMemo(
-    () =>
-      [...standings]
-        .sort((a, b) => {
-          const av = rankValue(a, boards[a.id], category, mode);
-          const bv = rankValue(b, boards[b.id], category, mode);
-          return bv - av || a.shortName.localeCompare(b.shortName);
-        })
-        .map((c, i) => ({ c, rank: i + 1 })),
-    [standings, boards, category, mode],
-  );
-
   const columns = columnsFor(category, mode);
+
+  const sortAccessor = (
+    key: string,
+  ): ((c: RankedCommunity, b?: CommunityBoard) => number | string) => {
+    if (key === "community") return (c) => c.shortName;
+    if (key === "size") return (c) => SIZE_ORDER[c.size] ?? 0;
+    const col = columns.find((co) => co.header === key);
+    return col ? col.sortValue : () => 0;
+  };
+
+  const rows = useMemo(() => {
+    const ordered = [...standings];
+    if (sort) {
+      const accessor = sortAccessor(sort.key);
+      const dir = sort.dir === "asc" ? 1 : -1;
+      ordered.sort((a, b) => {
+        const av = accessor(a, boards[a.id]);
+        const bv = accessor(b, boards[b.id]);
+        if (typeof av === "string" || typeof bv === "string") {
+          return dir * String(av).localeCompare(String(bv));
+        }
+        return dir * (av - bv) || a.shortName.localeCompare(b.shortName);
+      });
+    } else {
+      ordered.sort((a, b) => {
+        const av = rankValue(a, boards[a.id], category, mode);
+        const bv = rankValue(b, boards[b.id], category, mode);
+        return bv - av || a.shortName.localeCompare(b.shortName);
+      });
+    }
+    return ordered.map((c, i) => ({ c, rank: i + 1 }));
+    // sortAccessor is derived from columns/category/mode, already in deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [standings, boards, category, mode, sort]);
+
+  const setToggles = (next: { category?: CategoryKey; mode?: ValueMode }) => {
+    if (next.category) setCategory(next.category);
+    if (next.mode) setMode(next.mode);
+    setSort(null); // the visible columns change, so any explicit sort no longer applies
+  };
+
+  const toggleSort = (key: string) =>
+    setSort((s) =>
+      s && s.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" },
+    );
+
+  const sortArrow = (key: string) => (sort?.key === key ? (sort.dir === "desc" ? " ▼" : " ▲") : "");
 
   return (
     <section className="border border-white/10 bg-black/60 p-5 backdrop-blur-md">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold uppercase tracking-[0.32em] text-white">Full Standings</h3>
+          <h3 className="text-sm font-bold uppercase tracking-[0.32em] text-white">
+            Full Standings
+          </h3>
           <ProvenanceInfo content={provenance} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -226,10 +372,12 @@ export function StandingsTable({
               <button
                 key={c.key}
                 type="button"
-                onClick={() => setCategory(c.key)}
+                onClick={() => setToggles({ category: c.key })}
                 className={cn(
                   "px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] transition-colors",
-                  category === c.key ? "bg-white/15 text-white" : "bg-black/40 text-white/50 hover:text-white",
+                  category === c.key
+                    ? "bg-white/15 text-white"
+                    : "bg-black/40 text-white/50 hover:text-white",
                 )}
               >
                 {c.label}
@@ -242,10 +390,12 @@ export function StandingsTable({
                 key={m.key}
                 type="button"
                 title={m.hint}
-                onClick={() => setMode(m.key)}
+                onClick={() => setToggles({ mode: m.key })}
                 className={cn(
                   "px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] transition-colors",
-                  mode === m.key ? "bg-white/15 text-white" : "bg-black/40 text-white/50 hover:text-white",
+                  mode === m.key
+                    ? "bg-white/15 text-white"
+                    : "bg-black/40 text-white/50 hover:text-white",
                 )}
               >
                 {m.label}
@@ -261,11 +411,54 @@ export function StandingsTable({
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.24em] text-white/40">
-              <th className="py-2 pr-3">#</th>
-              <th className="py-2 pr-3">Community</th>
-              <th className="py-2 pr-3">Size</th>
+              <th className="py-2 pr-3">
+                <button
+                  type="button"
+                  onClick={() => setSort(null)}
+                  title="Reset to standings order"
+                  className="uppercase tracking-[0.24em] transition-colors hover:text-white"
+                >
+                  #
+                </button>
+              </th>
+              <th className="py-2 pr-3">
+                <button
+                  type="button"
+                  onClick={() => toggleSort("community")}
+                  className={cn(
+                    "uppercase tracking-[0.24em] transition-colors hover:text-white",
+                    sort?.key === "community" && "text-white",
+                  )}
+                >
+                  Community{sortArrow("community")}
+                </button>
+              </th>
+              <th className="py-2 pr-3">
+                <button
+                  type="button"
+                  onClick={() => toggleSort("size")}
+                  className={cn(
+                    "uppercase tracking-[0.24em] transition-colors hover:text-white",
+                    sort?.key === "size" && "text-white",
+                  )}
+                >
+                  Size{sortArrow("size")}
+                </button>
+              </th>
               {columns.map((col) => (
-                <th key={col.header} className="py-2 pr-3 text-right">{col.header}</th>
+                <th key={col.header} className="py-2 pr-3 text-right">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort(col.header)}
+                    className={cn(
+                      "ml-auto block uppercase tracking-[0.24em] transition-colors hover:text-white",
+                      sort?.key === col.header && "text-white",
+                    )}
+                  >
+                    {col.header}
+                    {sortArrow(col.header)}
+                  </button>
+                </th>
               ))}
               <th className="w-6 py-2" />
             </tr>
@@ -282,20 +475,30 @@ export function StandingsTable({
                     )}
                     onClick={() => setExpandedId(expanded ? null : c.id)}
                   >
-                    <td className={cn("py-2 pr-3 font-mono", rank <= 3 && "text-amber-200")}>{rank}</td>
+                    <td className={cn("py-2 pr-3 font-mono", rank <= 3 && "text-amber-200")}>
+                      {rank}
+                    </td>
                     <td className="py-2 pr-3 font-bold text-white">{c.shortName}</td>
                     <td className="py-2 pr-3 text-xs text-white/50">{c.size}</td>
                     {columns.map((col) => (
-                      <td key={col.header} className="py-2 pr-3 text-right">{col.render(c, boards[c.id])}</td>
+                      <td key={col.header} className="py-2 pr-3 text-right">
+                        {col.render(c, boards[c.id])}
+                      </td>
                     ))}
                     <td className="py-2 text-white/30">
-                      <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />
+                      <ChevronDown
+                        className={cn("size-4 transition-transform", expanded && "rotate-180")}
+                      />
                     </td>
                   </tr>
                   {expanded ? (
                     <tr className="border-b border-white/5">
                       <td colSpan={columns.length + 4} className="py-3">
-                        <CommunityBoardCard community={c} board={boards[c.id] ?? null} monthLabel={monthLabel} />
+                        <CommunityBoardCard
+                          community={c}
+                          board={boards[c.id] ?? null}
+                          monthLabel={monthLabel}
+                        />
                       </td>
                     </tr>
                   ) : null}

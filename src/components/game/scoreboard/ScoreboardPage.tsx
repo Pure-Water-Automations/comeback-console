@@ -24,14 +24,15 @@ import {
   type Community,
   type RankedCommunity,
 } from "@/lib/comebackData";
-/** Date the static community snapshot was pulled from the live workbooks. */
-const SNAPSHOT_DATE = "2026-06-09";
 import { getScoreboardLive } from "@/lib/scoreboardApi";
 import { cn } from "@/lib/utils";
 import { communityIsLeaderArt, communitySprite } from "./mascots";
 import { AwardsRecap } from "../awards/AwardsRecap";
 import { ScoreboardCharts } from "./ScoreboardCharts";
 import { StandingsTable } from "./StandingsTable";
+
+/** Date the static community snapshot was pulled from the live workbooks. */
+const SNAPSHOT_DATE = "2026-06-09";
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -714,97 +715,6 @@ function CategoryMeter({
   );
 }
 
-function TeamBattleSection({ standings }: { standings: RankedCommunity[] }) {
-  const teams = useMemo(() => {
-    const entries = Object.entries(TEAM_LABELS) as Array<[Community["team"], string]>;
-    return entries
-      .map(([team, label]) => {
-        const communities = standings.filter((community) => community.team === team);
-        return {
-          team,
-          label,
-          count: communities.length,
-          points: communities.reduce((sum, community) => sum + community.points, 0),
-        };
-      })
-      .sort((a, b) => b.points - a.points);
-  }, [standings]);
-
-  const values = teams.map((team) => team.points);
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = Math.max(1, max - min);
-
-  return (
-    <SectionShell
-      index="03"
-      kicker="STRATCOM battle"
-      title="Challenge team race"
-      glow="rgba(168,85,247,0.18)"
-    >
-      <div className="space-y-4">
-        {teams.map((team, index) => {
-          const width = 18 + ((team.points - min) / range) * 78;
-          const leading = index === 0;
-          const positive = team.points >= 0;
-
-          return (
-            <motion.div
-              key={team.team}
-              className={cn(
-                "border border-white/10 bg-black/60 p-4 backdrop-blur-md",
-                leading && "border-amber-200/35 shadow-[0_0_24px_rgba(234,179,8,0.18)]",
-              )}
-              initial={{ opacity: 0, x: -26 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.35 }}
-              transition={{ duration: 0.55, delay: index * 0.08, ease: EASE }}
-            >
-              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.32em] text-white/40">
-                    {leading ? "Current lead" : `Seed ${index + 1}`}
-                  </p>
-                  <h3 className="mt-1 text-2xl font-bold uppercase text-white">{team.label}</h3>
-                </div>
-                <div className="text-right">
-                  <p
-                    className={cn(
-                      "font-mono text-3xl font-bold",
-                      positive ? "text-cyan-100" : "text-red-200/75",
-                    )}
-                  >
-                    {formatPoints(team.points)}
-                  </p>
-                  <p className="text-xs uppercase tracking-[0.24em] text-white/35">
-                    {team.count} communities
-                  </p>
-                </div>
-              </div>
-              <div className="h-8 border border-white/10 bg-white/[0.03]">
-                <motion.div
-                  className={cn(
-                    "h-full",
-                    leading
-                      ? "bg-amber-200 shadow-[0_0_18px_rgba(234,179,8,0.38)]"
-                      : positive
-                        ? "bg-cyan-200 shadow-[0_0_16px_rgba(45,212,191,0.28)]"
-                        : "bg-red-500/45",
-                  )}
-                  initial={{ width: 0 }}
-                  whileInView={{ width: `${width}%` }}
-                  viewport={{ once: true, amount: 0.35 }}
-                  transition={{ duration: 0.9, delay: index * 0.08, ease: EASE }}
-                />
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-    </SectionShell>
-  );
-}
-
 function CategoryChampionsSection({ standings }: { standings: RankedCommunity[] }) {
   const champions = CATEGORIES.map((category) => {
     const community = standings.reduce((best, candidate) =>
@@ -815,7 +725,7 @@ function CategoryChampionsSection({ standings }: { standings: RankedCommunity[] 
 
   return (
     <SectionShell
-      index="04"
+      index="03"
       kicker="Category champions"
       title="Lane leaders"
       glow="rgba(234,179,8,0.14)"
@@ -941,7 +851,6 @@ export function ScoreboardPage() {
           monthLabel={dataMonth ?? "This month"}
         />
       </div>
-      <TeamBattleSection standings={standings} />
       <CategoryChampionsSection standings={standings} />
     </div>
   );

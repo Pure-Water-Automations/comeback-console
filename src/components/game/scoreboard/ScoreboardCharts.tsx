@@ -4,19 +4,43 @@
 
 import { useMemo } from "react";
 import {
-  Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer,
-  Tooltip, XAxis, YAxis,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { pctOfTarget, type RankedCommunity } from "@/lib/comebackData";
 
 const GRID = "rgba(255,255,255,0.08)";
 const AXIS = { fill: "rgba(255,255,255,0.45)", fontSize: 10 };
 const TOOLTIP_STYLE = {
-  background: "rgba(0,0,0,0.9)", border: "1px solid rgba(255,255,255,0.15)",
-  borderRadius: 0, fontSize: 12, color: "#fff",
+  background: "rgba(0,0,0,0.9)",
+  border: "1px solid rgba(255,255,255,0.15)",
+  borderRadius: 0,
+  fontSize: 12,
+  color: "#fff",
 } as const;
+// recharts colors each tooltip row by its series/Cell color, so a dark bar fill
+// (e.g. --chart-4 for sub-target tiers) renders dark-on-black. Force readable
+// text on every tooltip regardless of the underlying mark color.
+const TOOLTIP_ITEM_STYLE = { color: "#fff" } as const;
+const TOOLTIP_LABEL_STYLE = { color: "rgba(255,255,255,0.6)" } as const;
 
-function Panel({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
+function Panel({
+  title,
+  sub,
+  children,
+}: {
+  title: string;
+  sub: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="border border-white/10 bg-black/60 p-4 backdrop-blur-md">
       <p className="text-xs font-bold uppercase tracking-[0.28em] text-white">{title}</p>
@@ -72,7 +96,9 @@ export function ScoreboardCharts({
       (pctOfTarget(c.finance) + pctOfTarget(c.activeMembers) + pctOfTarget(c.blessing)) / 3;
     return tiers.map((size) => {
       const group = standings.filter((c) => c.size === size);
-      const avg = group.length ? Math.round(group.reduce((s, c) => s + communityPct(c), 0) / group.length) : 0;
+      const avg = group.length
+        ? Math.round(group.reduce((s, c) => s + communityPct(c), 0) / group.length)
+        : 0;
       return { size: size === "Family Group" ? "Family Grp" : size, avg, n: group.length };
     });
   }, [standings]);
@@ -85,21 +111,53 @@ export function ScoreboardCharts({
             <CartesianGrid stroke={GRID} vertical={false} />
             <XAxis dataKey="week" tick={AXIS} tickLine={false} axisLine={false} />
             <YAxis tick={AXIS} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ stroke: GRID }} />
-            <Line isAnimationActive={false} type="monotone" dataKey="region" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
+            <Tooltip
+              contentStyle={TOOLTIP_STYLE}
+              itemStyle={TOOLTIP_ITEM_STYLE}
+              labelStyle={TOOLTIP_LABEL_STYLE}
+              cursor={{ stroke: GRID }}
+            />
+            <Line
+              isAnimationActive={false}
+              type="monotone"
+              dataKey="region"
+              stroke="var(--chart-2)"
+              strokeWidth={2}
+              dot={{ r: 3 }}
+            />
           </LineChart>
         </ResponsiveContainer>
       </Panel>
       <Panel title="Points Leaderboard" sub="Top 10 communities by total points">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={leaderboard} layout="vertical" margin={{ top: 0, right: 8, bottom: 0, left: 10 }}>
+          <BarChart
+            data={leaderboard}
+            layout="vertical"
+            margin={{ top: 0, right: 8, bottom: 0, left: 10 }}
+          >
             <CartesianGrid stroke={GRID} horizontal={false} />
             <XAxis type="number" tick={AXIS} tickLine={false} axisLine={false} />
-            <YAxis type="category" dataKey="name" width={82} tick={AXIS} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={82}
+              interval={0}
+              tick={AXIS}
+              tickLine={false}
+              axisLine={false}
+            />
+            <Tooltip
+              contentStyle={TOOLTIP_STYLE}
+              itemStyle={TOOLTIP_ITEM_STYLE}
+              labelStyle={TOOLTIP_LABEL_STYLE}
+              cursor={{ fill: "rgba(255,255,255,0.04)" }}
+            />
             <Bar isAnimationActive={false} dataKey="points" maxBarSize={14}>
               {leaderboard.map((entry) => (
-                <Cell key={entry.name} fill={entry.points > 0 ? "var(--chart-1)" : "rgba(255,255,255,0.22)"} />
+                <Cell
+                  key={entry.name}
+                  fill={entry.points > 0 ? "var(--chart-1)" : "rgba(255,255,255,0.22)"}
+                />
               ))}
             </Bar>
           </BarChart>
@@ -113,12 +171,17 @@ export function ScoreboardCharts({
             <YAxis tick={AXIS} tickLine={false} axisLine={false} />
             <Tooltip
               contentStyle={TOOLTIP_STYLE}
+              itemStyle={TOOLTIP_ITEM_STYLE}
+              labelStyle={TOOLTIP_LABEL_STYLE}
               cursor={{ fill: "rgba(255,255,255,0.04)" }}
               formatter={(v: number) => [`${v}% of target`, "Average"]}
             />
             <Bar isAnimationActive={false} dataKey="avg" maxBarSize={40}>
               {distribution.map((entry) => (
-                <Cell key={entry.size} fill={entry.avg >= 100 ? "var(--chart-2)" : "var(--chart-4)"} />
+                <Cell
+                  key={entry.size}
+                  fill={entry.avg >= 100 ? "var(--chart-2)" : "var(--chart-4)"}
+                />
               ))}
             </Bar>
           </BarChart>
