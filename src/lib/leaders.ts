@@ -70,19 +70,22 @@ export const LEADERS: Leader[] = [
     sprite: hoonmoonChoi,
     communityId: "new-york-kea",
   },
+  // Manhattan's new pastor is Francis and Connecticut's is Denthew, but we don't
+  // have their sprite art yet — demote the prior leads to secondary so those
+  // communities show the neutral mascot (not a wrong face) until art arrives.
   {
     slug: "joshua-gurtatowski",
     name: "Joshua Gurtatowski",
-    title: "Interim Pastor — Manhattan",
+    title: "Former Interim Pastor — Manhattan",
     sprite: joshuaGurtatowski,
-    communityId: "manhattan",
+    supportsCommunityId: "manhattan",
   },
   {
     slug: "simone-doroski",
     name: "Simone Doroski",
-    title: "Pastor — Connecticut",
+    title: "Former Pastor — Connecticut",
     sprite: simoneDoroski,
-    communityId: "connecticut",
+    supportsCommunityId: "connecticut",
   },
   {
     slug: "miilhan-stephens",
@@ -231,7 +234,13 @@ export const LEADERS: Leader[] = [
     sprite: shizukoIwaya,
   },
   { slug: "kiyoka-komiya", name: "Kiyoka Komiya", title: "Regional Staff", sprite: kiyokaKomiya },
-  { slug: "nadya-kazak", name: "Nadya Kazak", title: "Regional Staff", sprite: nadyaKazak },
+  {
+    slug: "nadya-kazak",
+    name: "Nadya Kazak",
+    title: "Pastor — Mid-Hudson",
+    sprite: nadyaKazak,
+    communityId: "mid-hudson",
+  },
 ];
 
 // communityId → the leader who is its public face.
