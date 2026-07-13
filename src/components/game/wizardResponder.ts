@@ -1,10 +1,14 @@
 /**
  * Wizard Knowledge Base Responder
- * Curated from the HQ Dashboard System Pastor Guide (Google Doc).
+ * Rules/FAQ facts come from the shared FAQ data (src/lib/faqData.ts), which is
+ * itself backed by the live FAQ Google Sheet (see src/lib/server/liveFaq.ts) —
+ * the same source that powers the Rulebook's FAQ panel. Only wizard-persona
+ * lore (easter eggs) lives locally here, since that isn't campaign content.
  * Exposes a search matcher that answers rules queries in-character as a retro 32-bit wizard.
  */
 
 import { createServerFn } from "@tanstack/react-start";
+import { FAQ_ENTRIES, type FaqEntry } from "@/lib/faqData";
 
 export interface WizardResponse {
   answer: string;
@@ -18,82 +22,9 @@ interface FactSection {
   response: string;
 }
 
-const FACTS: FactSection[] = [
-  {
-    topic: "FABLES Overview",
-    keywords: ["fables", "six lanes", "growth lanes", "acronym", "objective", "categories"],
-    response: "Hark! The legendary acronym of growth is FABLES! It stands for: \n" +
-              "• F — Finances: Grow financial health, ownership, and giving.\n" +
-              "• A — Active Members: Increase real participation, connection, and engagement.\n" +
-              "• B — Blessing: Guide souls step-by-step along the Blessing Journey.\n" +
-              "• L — Leadership Development: Raise, train, and trust emerging leaders.\n" +
-              "• E — Environmental Enhancements: Improve community atmosphere and spaces.\n" +
-              "• S — Special Projects: Complete mission-focused strategic initiatives.\n" +
-              "Thou must balance all six growth lanes to achieve total community revival!"
-  },
-  {
-    topic: "Finances & Income Scoring",
-    keywords: ["finance", "finances", "income", "money", "giving", "donation", "donations", "point", "points", "scoring", "formula"],
-    response: "By the gold of the treasury! Income points are calculated by multiplying thy community's income growth percentage by 10 (Growth % × 10). " +
-              "To boost thy score, build a culture of financial ownership, ensure monthly income is logged on time in the finance tab, and keep thy giving above the baseline target!"
-  },
-  {
-    topic: "Active Membership Classifications",
-    keywords: ["active", "member", "members", "membership", "core", "inactive", "archive", "classification", "attendance", "91", "days"],
-    response: "Attend closely! The scoreboard classifies membership based on attendance in the recent 3-month (91-day) window:\n" +
-              "• Core Member: 12 or more attendances in the last 3 months.\n" +
-              "• Active Member: 3 to 11 attendances in the last 3 months.\n" +
-              "• Inactive Member: fewer than 3 attendances in the last 3 months.\n" +
-              "• Archive: last attended date is older than 12 months.\n" +
-              "Remember, the system rewards recorded reality! Keep Sunday service and event logs updated to show who is participating."
-  },
-  {
-    topic: "Blessing Journey Tracker",
-    keywords: ["blessing", "match", "matching", "journey", "candidate", "ceremony", "education", "singles", "couples"],
-    response: "Ah, the Blessing Journey! The scoreboard awards points for step-by-step progress along the path, not just the final ceremony. " +
-              "Log every milestone: from interest and education, to registration, candidate status, matching, and the holy ceremony. " +
-              "Do not let candidates stall in silence—record their progress monthly!"
-  },
-  {
-    topic: "Leadership, Environment, Special Projects (LES)",
-    keywords: ["les", "leadership", "environment", "special projects", "project", "projects", "goal", "goals", "milestones"],
-    response: "The path of structural growth! The LES Development section tracks local goals: \n" +
-              "• Leadership: Train and empower emerging leaders.\n" +
-              "• Environment: Upkeep facilities and raise hospitality aesthetics.\n" +
-              "• Special Projects: Launch programs or systems upgrades.\n" +
-              "Each goal requires a clear description, owner, target date, completion date, and uploading visual proof of completion!"
-  },
-  {
-    topic: "Monday 5 PM Sync Deadline",
-    keywords: ["deadline", "deadlines", "monday", "5", "pm", "est", "sync", "time", "weekly", "update", "updates"],
-    response: "Hearken to the clock! By Monday at 5 PM EST, all weekly trackers (Sunday attendance, event logs, registrants, and Blessing progress) must be updated. " +
-              "This ensures the regional scoreboard and weekly coaching reviews are based on fresh, accurate telemetry. Do not be late, or the spell of automatic import will fail!"
-  },
-  {
-    topic: "Common Scoring Mistakes",
-    keywords: ["mistakes", "mistake", "penalties", "penalty", "duplicate", "duplicates", "late", "spelling", "error", "errors", "data"],
-    response: "Beware the dark scroll of data errors! The most common mistakes that damage thy score are:\n" +
-              "1. Taking attendance but leaving it unentered.\n" +
-              "2. Neglecting to register recurring guests in the Directory.\n" +
-              "3. Spelling names inconsistently across sheets, causing duplicate profiles.\n" +
-              "4. Late updates to finance, Blessing progress, or LES goals.\n" +
-              "5. Pointing dashboard links to obsolete files.\n" +
-              "Clean data is care made visible—keep thy sheets pristine!"
-  },
-  {
-    topic: "Baselines and Trimester Loops",
-    keywords: ["baseline", "baselines", "trimester", "target", "targets", "reset", "resets", "grow", "growth"],
-    response: "Every community plays on a level field! Thy baseline is thy starting point for the trimester. " +
-              "A smaller community wins by growing significantly compared to its own baseline. " +
-              "At the end of each trimester, review thy lanes, clean up directories, celebrate victories, and reset goals for the next season!"
-  },
-  {
-    topic: "Directory - Source of Truth",
-    keywords: ["directory", "database", "people", "truth", "names", "register", "registration", "guest", "guests"],
-    response: "The Directory is the ultimate source of truth! It holds the identity of every member and guest. " +
-              "If names, guest statuses, or dates are misspelled or broken, the dashboard will misread thy community. " +
-              "Ensure all repeat attendees are properly registered and matched to prevent their records from dissolving into the ether!"
-  },
+const toFact = (e: FaqEntry): FactSection => ({ topic: e.topic, keywords: e.keywords, response: e.answer });
+
+const EASTER_EGGS: FactSection[] = [
   {
     topic: "Wizard Name and Identity",
     keywords: ["name", "who are you", "what is your name", "eldrin", "your name"],
@@ -154,9 +85,14 @@ const OUTROS = [
   "\n\nGo forth and turn these metrics into real action!"
 ];
 
-export function getWizardResponse(query: string): WizardResponse {
+/**
+ * entries defaults to the static FAQ_ENTRIES (works offline, zero network
+ * dependency) — pass the live-fetched entries from getFaqLive() when available
+ * so the wizard reflects whatever Aira has published on the FAQ sheet.
+ */
+export function getWizardResponse(query: string, entries: FaqEntry[] = FAQ_ENTRIES): WizardResponse {
   const cleanQuery = query.toLowerCase().trim();
-  
+
   if (!cleanQuery) {
     return {
       answer: "Speak, traveler! Ask me of the growth lanes, the Monday 5 PM deadline, the active member formulas, or scoreboard rules.",
@@ -164,6 +100,10 @@ export function getWizardResponse(query: string): WizardResponse {
       suggestions: DEFAULT_SUGGESTIONS
     };
   }
+
+  // Only published facts can be matched — a needs-content stub must never
+  // come back to a pastor as if it were a real (empty) answer.
+  const FACTS: FactSection[] = [...entries.filter((e) => e.status === "published").map(toFact), ...EASTER_EGGS];
 
   // Scoring match
   let bestSection: FactSection | null = null;
@@ -186,7 +126,7 @@ export function getWizardResponse(query: string): WizardResponse {
   if (bestSection && maxScore > 0) {
     const intro = INTROS[Math.floor(Math.random() * INTROS.length)];
     const outro = OUTROS[Math.floor(Math.random() * OUTROS.length)];
-    
+
     // Customize suggestions based on the topic to encourage exploration
     const allTopics = FACTS.map(f => f.topic).filter(t => t !== bestSection?.topic);
     const relatedSuggestions = [
@@ -214,6 +154,16 @@ export function getWizardResponse(query: string): WizardResponse {
 export const getOpenAIResponse = createServerFn({ method: "POST" })
   .inputValidator((data: { query: string }) => data)
   .handler(async ({ data }) => {
+    // Pull the live FAQ sheet so the AI's guide always matches whatever
+    // Aira has published — same source the local responder and the
+    // Rulebook's FAQ panel use.
+    const { loadLiveFaq } = await import("@/lib/server/liveFaq");
+    const { entries } = await loadLiveFaq();
+    const guideText = entries
+      .filter((e) => e.status === "published")
+      .map((e) => `• ${e.question}\n  ${e.answer}`)
+      .join("\n\n");
+
     // NIM-first: the FREE NVIDIA NIM backend (see SecondBrain/tools/nvidia-nim/AGENTS.md)
     // when NVIDIA_API_KEY is set, then OpenAI, then the local responder. Server-side only.
     const nimKey = process.env.NVIDIA_API_KEY;
@@ -263,42 +213,12 @@ Easter Eggs:
 4. If asked if you are married/in love: "I am wedded to the scoreboard, traveler! The Monday 5 PM sync deadline is my only mistress, and my love for clean directories knows no bounds!"
 5. If the user types "xyzzy": "Nothing happens. The spell of Colossal Cave is outdated! Try typing the Konami Code instead!"
 
-Here is the official Scoreboard Guide:
+Here is the official Scoreboard Guide (Q&A pairs — answer plainly using these facts, then translate into your voice):
 --------------------------------------
-1. Game Acronym (FABLES):
-• F — Finances: financial health, ownership, and giving.
-• A — Active Members: real participation and connection.
-• B — Blessing: step-by-step Blessing Journey progress (not just final blessed count).
-• L — Leadership Development: raising and empowering leaders.
-• E — Environmental Enhancements: improving community atmosphere and spaces.
-• S — Special Projects: mission-focused initiatives and upgrades.
-
-2. Monday 5 PM EST Sync Deadline:
-All trackers (Sunday attendance, event attendance, new registrants, Blessing progress, finance, LES, dashboard checks) must be updated by Monday at 5 PM EST for the regional review.
-
-3. Active Membership Classifications (Calculated on a rolling 3-month window):
-• Core Member: 12 or more attendances in the last 3 months.
-• Active Member: 3 to 11 attendances in the last 3 months.
-• Inactive Member: fewer than 3 attendances in the last 3 months.
-• Archive: last attended date is older than 12 months.
-
-4. Scoreboard Formulas:
-• Income points: Income Growth % × 10 (comparing current results against trimester baseline).
-• Members points: Based on active membership count.
-• Blessing points: Based on total process steps (eligibility, registrations, matching, ceremony).
-
-5. Sheet Guide & Role of tabs:
-• Profile: pastor/staff details, facility info, capacity.
-• Finance: tracks giving/income.
-• Sunday Service Tracker: tracks who attended Sunday services.
-• Event Attendance Tracker: tracks smaller events, which count for active membership.
-• Directory: source of truth. Needs clean records, no duplicates.
-• New Registrant: captures registration forms.
-• LES Development: tracks Leadership, Environment, Special Projects goals (needs description, owner, target date, completed date, visual evidence).
-
-6. Common Mistakes:
-Taking attendance but leaving it unentered; guests attending but not registering; misspelled names causing duplicates; late entries; dashboard links pointing to old files.
+${guideText}
 --------------------------------------
+
+If the user's question isn't covered above, say so honestly in character rather than inventing an answer — the guide is still being written and new topics are added regularly.
 
 Answer the user's question in character using the guide.`
             },

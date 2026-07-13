@@ -63,9 +63,11 @@ function toCommunity(row: string[], index: number): Community | null {
   const name = cell(row, 3);
   if (!name || !VALID_SIZES.has(size)) return null;
 
-  const fin = { baseline: num(row[4]), target: num(row[5]), result: num(row[7]) };
-  const mem = { baseline: num(row[32]), target: num(row[33]), result: num(row[34]) };
-  const ble = { baseline: num(row[37]), target: num(row[38]), result: num(row[39]) };
+  // result uses numOrNull: a blank cell means "not reported yet" (e.g. income
+  // typically posts ~mid-month for the prior month), distinct from a real 0.
+  const fin = { baseline: num(row[4]), target: num(row[5]), result: numOrNull(row, 7) };
+  const mem = { baseline: num(row[32]), target: num(row[33]), result: numOrNull(row, 34) };
+  const ble = { baseline: num(row[37]), target: num(row[38]), result: numOrNull(row, 39) };
   const ss = { baseline: num(row[10]), target: num(row[11]), result: num(row[12]) };
 
   // Weekly Sunday Service results live in cols 14-18; keep numeric weeks only.

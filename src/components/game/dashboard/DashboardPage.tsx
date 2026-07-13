@@ -526,7 +526,11 @@ function CategoryGaugeCard({ metric, index }: { metric: CategoryMetric; index: n
           <span className="font-mono text-xl text-white/24">-&gt;</span>
           <ValueBlock label="Target" value={metric.format(metric.stat.target)} />
           <span className="font-mono text-xl text-white/24">-&gt;</span>
-          <ValueBlock label="Current" value={metric.format(metric.stat.result)} strong />
+          <ValueBlock
+            label="Current"
+            value={metric.stat.result !== null ? metric.format(metric.stat.result) : "Pending"}
+            strong
+          />
         </div>
         <div className="mt-7">
           <div className="mb-2 flex items-end justify-between gap-4">
@@ -635,7 +639,7 @@ function AttendanceChart({ community }: { community: Community }) {
       : [{ week: "W1", label: "Week 1", attendance: null }];
   const target = community.sundayService.target;
   const values = data.map((point) => point.attendance ?? 0);
-  const maxValue = Math.max(target, community.sundayService.baseline, community.sundayService.result, ...values);
+  const maxValue = Math.max(target, community.sundayService.baseline, community.sundayService.result ?? 0, ...values);
 
   return (
     <SectionShell
@@ -722,7 +726,7 @@ function AttendanceChart({ community }: { community: Community }) {
             <div>
               <p className="text-[11px] uppercase tracking-[0.32em] text-white/40">Current avg</p>
               <p className="mt-2 font-mono text-5xl font-bold text-cyan-100">
-                {formatWhole(community.sundayService.result)}
+                {formatWhole(community.sundayService.result ?? 0)}
               </p>
             </div>
             <TrendingUp className="size-8 text-cyan-100" />

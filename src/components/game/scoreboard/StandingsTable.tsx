@@ -19,9 +19,13 @@ const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 const int = (n: number) => Math.round(n).toLocaleString("en-US");
 const signed = (n: number) => `${n > 0 ? "+" : ""}${Math.round(n)}`;
 
-/** Growth vs baseline — the board's own % (result ÷ baseline × 100). */
-const growthOf = (s: CategoryScore): number =>
-  s.baseline && s.result ? (s.result / s.baseline) * 100 : 0;
+/**
+ * Growth vs baseline — the board's own % (result ÷ baseline × 100).
+ * Null when the result hasn't been reported yet (distinct from a real 0,
+ * which would mean "collapsed to nothing" rather than "not posted yet").
+ */
+const growthOf = (s: CategoryScore): number | null =>
+  s.baseline && s.result ? (s.result / s.baseline) * 100 : s.result === null ? null : 0;
 
 interface Lane {
   key: Exclude<CategoryKey, "overall">;
@@ -29,8 +33,8 @@ interface Lane {
   metric: MetricDef;
   pts: (c: RankedCommunity) => number;
   /** The sheet's growth-% (vs baseline); computed fallback on snapshot */
-  growth: (c: RankedCommunity, b?: CommunityBoard) => number;
-  actual: (c: RankedCommunity, b?: CommunityBoard) => number;
+  growth: (c: RankedCommunity, b?: CommunityBoard) => number | null;
+  actual: (c: RankedCommunity, b?: CommunityBoard) => number | null;
   fmtActual: (n: number) => string;
 }
 
@@ -102,8 +106,15 @@ function ProvenanceInfo({ content }: { content: ProvenanceContent }) {
   );
 }
 
-/** Growth vs baseline: ▲ growing (teal), ▼ shrinking (muted), · flat. */
-function GrowthCell({ value }: { value: number }) {
+/** Growth vs baseline: ▲ growing (teal), ▼ shrinking (muted), · flat, · Pending (not reported yet). */
+function GrowthCell({ value }: { value: number | null }) {
+  if (value === null) {
+    return (
+      <span className="font-mono text-white/35" title="Not reported yet this month">
+        · Pending
+      </span>
+    );
+  }
   const delta = value - 100;
   if (Math.abs(delta) < 0.05) return <span className="font-mono text-white/40">· 0.0%</span>;
   const growing = delta > 0;
@@ -112,6 +123,11 @@ function GrowthCell({ value }: { value: number }) {
       {growing ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
     </span>
   );
+}
+
+/** Shared "—" rendering for a nullable actual value (not reported yet). */
+function fmtActualOrDash(lane: Pick<Lane, "fmtActual">, value: number | null): string {
+  return value === null ? "—" : lane.fmtActual(value);
 }
 
 interface Column {
@@ -130,7 +146,7 @@ function columnsFor(category: CategoryKey, mode: ValueMode): Column[] {
     if (mode === "pct") {
       return LANES.map((l) => ({ header: `${l.label} growth`, render: (c: RankedCommunity, b?: CommunityBoard) => <GrowthCell value={l.growth(c, b)} /> }));
     }
-    return LANES.map((l) => ({ header: l.label, render: (c: RankedCommunity, b?: CommunityBoard) => <span className="font-mono">{l.fmtActual(l.actual(c, b))}</span> }));
+    return LANES.map((l) => ({ header: l.label, render: (c: RankedCommunity, b?: CommunityBoard) => <span className="font-mono">{fmtActualOrDash(l, l.actual(c, b))}</span> }));
   }
   const lane = LANES.find((l) => l.key === category)!;
   if (mode === "pts") {
@@ -144,7 +160,7 @@ function columnsFor(category: CategoryKey, mode: ValueMode): Column[] {
   }
   return [
     { header: "Baseline", render: (c, b) => <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "baseline")}</span> },
-    { header: "Current", render: (c, b) => <span className="font-mono font-bold text-white">{lane.fmtActual(lane.actual(c, b))}</span> },
+    { header: "Current", render: (c, b) => <span className="font-mono font-bold text-white">{fmtActualOrDash(lane, lane.actual(c, b))}</span> },
     { header: "Target", render: (c, b) => <span className="font-mono text-white/50">{fmtLaneField(lane, b, c, "target")}</span> },
   ];
 }
@@ -156,15 +172,20 @@ function fmtLaneField(lane: Lane, b: CommunityBoard | undefined, c: RankedCommun
   return v ? lane.fmtActual(v) : "—";
 }
 
+/**
+ * Sort keys need a real number even for a "Pending" lane. 100 is the neutral
+ * substitute for growth (0% delta vs baseline — neither rewards nor punishes
+ * not having reported yet); 0 is the neutral substitute for a raw actual.
+ */
 function rankValue(c: RankedCommunity, b: CommunityBoard | undefined, category: CategoryKey, mode: ValueMode): number {
   if (category === "overall") {
-    if (mode === "pct") return LANES.reduce((s, l) => s + l.growth(c, b), 0) / LANES.length;
+    if (mode === "pct") return LANES.reduce((s, l) => s + (l.growth(c, b) ?? 100), 0) / LANES.length;
     return c.points;
   }
   const lane = LANES.find((l) => l.key === category)!;
   if (mode === "pts") return lane.pts(c);
-  if (mode === "pct") return lane.growth(c, b);
-  return lane.actual(c, b);
+  if (mode === "pct") return lane.growth(c, b) ?? 100;
+  return lane.actual(c, b) ?? 0;
 }
 
 export function StandingsTable({

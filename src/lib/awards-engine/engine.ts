@@ -43,7 +43,7 @@ function applyEligibility(
       }
     }
     if (e.requireAllCategories) {
-      const missing = (["finance", "activeMembers", "blessing"] as const).filter((k) => c[k].result <= 0);
+      const missing = (["finance", "activeMembers", "blessing"] as const).filter((k) => (c[k].result ?? 0) <= 0);
       if (missing.length) {
         disqualified.push({
           communityId: c.id, community: c.shortName,

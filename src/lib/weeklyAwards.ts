@@ -321,8 +321,8 @@ export function buildRegionOverview(communities: Community[] = COMMUNITIES): Ove
   // partial month yet; counting their zeros as "decline" would slander them and
   // tank the region total. So we aggregate reporters only — true and fairer.
   const laneGrowth = (key: "finance" | "activeMembers" | "blessing") => {
-    const reporters = communities.filter((c) => c[key].result > 0);
-    const result = sum(reporters.map((c) => c[key].result));
+    const reporters = communities.filter((c) => (c[key].result ?? 0) > 0);
+    const result = sum(reporters.map((c) => c[key].result ?? 0));
     const baseline = sum(reporters.map((c) => c[key].baseline));
     return { result, growth: baseline ? (result / baseline - 1) * 100 : 0, reporters: reporters.length };
   };

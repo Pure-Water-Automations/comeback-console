@@ -11,8 +11,9 @@ export interface CategoryScore {
   baseline: number;
   /** T2 target (baseline + campaign growth %) */
   target: number;
-  /** Current T2 result */
-  result: number;
+  /** Current T2 result — null when this month's figure hasn't been reported yet
+   * (e.g. income typically posts ~mid-month for the prior month) */
+  result: number | null;
 }
 
 export interface Community {
@@ -71,7 +72,7 @@ export const COMMUNITIES: Community[] = [
     team: "NE",
     size: "Medium",
     mascot: "mentor",
-    finance: { baseline: 32684, target: 35952, result: 0 },
+    finance: { baseline: 32684, target: 35952, result: null },
     activeMembers: { baseline: 213, target: 256, result: 193 },
     blessing: { baseline: 61, target: 79, result: 61 },
     sundayService: { baseline: 135, target: 148, result: 45 },
@@ -141,7 +142,7 @@ export const COMMUNITIES: Community[] = [
     team: "S",
     size: "Small",
     mascot: "adventurer",
-    finance: { baseline: 7524, target: 8276, result: 0 },
+    finance: { baseline: 7524, target: 8276, result: null },
     activeMembers: { baseline: 52, target: 62, result: 51 },
     blessing: { baseline: 6, target: 8, result: 6 },
     sundayService: { baseline: 31, target: 34, result: 34 },
@@ -155,7 +156,7 @@ export const COMMUNITIES: Community[] = [
     team: "MW",
     size: "Small",
     mascot: "mentor",
-    finance: { baseline: 7674, target: 8441, result: 0 },
+    finance: { baseline: 7674, target: 8441, result: null },
     activeMembers: { baseline: 40, target: 48, result: 36 },
     blessing: { baseline: 6, target: 8, result: 6 },
     sundayService: { baseline: 25, target: 28, result: 24 },
@@ -175,7 +176,7 @@ export const COMMUNITIES: Community[] = [
     team: "MW",
     size: "Small",
     mascot: "smart_guy",
-    finance: { baseline: 5556, target: 6112, result: 0 },
+    finance: { baseline: 5556, target: 6112, result: null },
     activeMembers: { baseline: 46, target: 55, result: 51 },
     blessing: { baseline: 9, target: 12, result: 9 },
     sundayService: { baseline: 36, target: 40, result: 43 },
@@ -203,7 +204,7 @@ export const COMMUNITIES: Community[] = [
     team: "MW",
     size: "Small",
     mascot: "npc",
-    finance: { baseline: 3993, target: 4392, result: 0 },
+    finance: { baseline: 3993, target: 4392, result: null },
     activeMembers: { baseline: 52, target: 62, result: 50 },
     blessing: { baseline: 3, target: 4, result: 3 },
     sundayService: { baseline: 40, target: 44, result: 32 },
@@ -232,7 +233,7 @@ export const COMMUNITIES: Community[] = [
     size: "Small",
     mascot: "adventurer",
     finance: { baseline: 1916, target: 2108, result: 1333 },
-    activeMembers: { baseline: 11, target: 13, result: 0 },
+    activeMembers: { baseline: 11, target: 13, result: null },
     blessing: { baseline: 1, target: 1, result: 1 },
     sundayService: { baseline: 11, target: 12, result: 6 },
     weeklyAttendance: [6],
@@ -245,7 +246,7 @@ export const COMMUNITIES: Community[] = [
     team: "W",
     size: "Small",
     mascot: "mentor",
-    finance: { baseline: 2380, target: 2618, result: 0 },
+    finance: { baseline: 2380, target: 2618, result: null },
     activeMembers: { baseline: 11, target: 13, result: 12 },
     blessing: { baseline: 1, target: 1, result: 1 },
     sundayService: { baseline: 9, target: 10, result: 8 },
@@ -273,7 +274,7 @@ export const COMMUNITIES: Community[] = [
     team: "CAN",
     size: "Family Group",
     mascot: "spirit",
-    finance: { baseline: 2559, target: 2815, result: 0 },
+    finance: { baseline: 2559, target: 2815, result: null },
     activeMembers: { baseline: 0, target: 0, result: 0 },
     blessing: { baseline: 2, target: 3, result: 2 },
     sundayService: { baseline: 0, target: 0, result: 0 },
@@ -287,7 +288,7 @@ export const COMMUNITIES: Community[] = [
     team: "CAN",
     size: "Family Group",
     mascot: "smart_guy",
-    finance: { baseline: 1278, target: 1406, result: 0 },
+    finance: { baseline: 1278, target: 1406, result: null },
     activeMembers: { baseline: 17, target: 20, result: 18 },
     blessing: { baseline: 0, target: 0, result: 0 },
     sundayService: { baseline: 14, target: 15, result: 13 },
@@ -301,7 +302,7 @@ export const COMMUNITIES: Community[] = [
     team: "W",
     size: "Family Group",
     mascot: "wizard",
-    finance: { baseline: 2316, target: 2548, result: 0 },
+    finance: { baseline: 2316, target: 2548, result: null },
     activeMembers: { baseline: 5, target: 6, result: 5 },
     blessing: { baseline: 5, target: 7, result: 4 },
     sundayService: { baseline: 5, target: 6, result: 5 },

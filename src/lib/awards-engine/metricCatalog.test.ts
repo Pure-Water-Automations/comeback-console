@@ -25,6 +25,12 @@ describe("metricCatalog", () => {
     expect(METRIC_BY_ID.weekly_jump.compute(empty)).toBeNull();
   });
 
+  it("treats an unreported result (null) as no data, not a zero", () => {
+    const pending = { ...nj, finance: { ...nj.finance, result: null } };
+    expect(METRIC_BY_ID.income_result.compute(pending)).toBeNull();
+    expect(METRIC_BY_ID.finance_pct_target.compute(pending)).toBeNull();
+  });
+
   it("formats by kind", () => {
     expect(formatMetricValue(METRIC_BY_ID.income_result, 12345.6)).toBe("$12,346");
     expect(formatMetricValue(METRIC_BY_ID.total_points, 42)).toBe("+42 pts");

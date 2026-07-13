@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence, useScroll, useVelocity, useTransform } from "motion/react";
-import { Volume2, VolumeX, Play, Pause, HelpCircle, Sparkles, Monitor, Info, Keyboard, Terminal, Trophy, Activity, Timer, Music, Grid } from "lucide-react";
+import { Volume2, VolumeX, Play, Pause, HelpCircle, Sparkles, Monitor, Info, Keyboard, Terminal, Trophy, Activity, Timer, Music, Grid, MessageCircleQuestion } from "lucide-react";
+import { getFaqLive } from "@/lib/faqApi";
+import { FAQ_ENTRIES } from "@/lib/faqData";
 import heroImg from "@/assets/sprites/adventurer/adventurer_walking.png";
 import heroClipboardImg from "@/assets/sprites/adventurer/adventurer_clipboard.png";
 import heroPointingImg from "@/assets/sprites/adventurer/adventurer_pointing.png";
@@ -458,7 +461,11 @@ export function CosmicRules() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [crtActive, setCrtActive] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
   const [perfMode, setPerfMode] = useState(false);
+
+  const faqQuery = useQuery({ queryKey: ["faq-live"], queryFn: () => getFaqLive() });
+  const faqEntries = faqQuery.data?.entries ?? FAQ_ENTRIES;
   const [spriteHovered, setSpriteHovered] = useState(false);
   
   // Interactive particles and trails
@@ -1317,7 +1324,7 @@ export function CosmicRules() {
 
       // Fallback if OpenAI is not configured or failed
       if (!resultAnswer) {
-        const localResult = getWizardResponse(cleanText);
+        const localResult = getWizardResponse(cleanText, faqEntries);
         resultAnswer = localResult.answer;
       }
       
@@ -1869,6 +1876,22 @@ export function CosmicRules() {
           title="Telemetry Control Panel Help (?)"
         >
           <HelpCircle size={15} />
+        </button>
+
+        <span className="w-px h-3.5 bg-white/15" />
+
+        {/* Rules FAQ panel */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowFaq(true);
+            playSound("click");
+          }}
+          onMouseEnter={() => playSound("hover")}
+          className="text-white/60 hover:text-white cursor-pointer transition-colors"
+          title="Frequently Asked Questions"
+        >
+          <MessageCircleQuestion size={15} />
         </button>
       </div>
 
@@ -2779,7 +2802,7 @@ export function CosmicRules() {
                     <div className="shrink-0 flex flex-col gap-2 mb-3 border-t border-purple-500/10 pt-3 select-none">
                       <div className="text-[8px] text-white/30 uppercase tracking-wider">Scry scrolls of interest:</div>
                       <div className="flex flex-wrap gap-1.5 max-h-[80px] overflow-y-auto pr-1">
-                        {getWizardResponse(chatHistory[chatHistory.length - 1]?.sender === "user" ? chatHistory[chatHistory.length - 1].text : "").suggestions.map((suggestion) => (
+                        {getWizardResponse(chatHistory[chatHistory.length - 1]?.sender === "user" ? chatHistory[chatHistory.length - 1].text : "", faqEntries).suggestions.map((suggestion) => (
                           <button
                             key={suggestion}
                             type="button"
@@ -3109,6 +3132,62 @@ export function CosmicRules() {
                   <span>Status: Operational</span>
                   <span>Version: 3.2.0-comeback</span>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showFaq && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 pointer-events-auto"
+            onClick={() => {
+              setShowFaq(false);
+              playSound("click");
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-2xl max-h-[80vh] overflow-y-auto border border-white/10 bg-[#0c0d12] p-8 rounded-[2rem] shadow-2xl text-left font-light select-none relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/[0.02] to-transparent pointer-events-none" />
+
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-xl font-bold uppercase tracking-wider text-white">Frequently Asked Questions</h3>
+                  <p className="text-[10px] text-white/45 tracking-[0.18em] uppercase mt-1">
+                    {faqQuery.data?.source === "live" ? "Live from the FAQ sheet" : "Built-in defaults"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowFaq(false);
+                    playSound("click");
+                  }}
+                  className="text-white/40 hover:text-white border border-white/10 hover:border-white/30 rounded-full h-8 w-8 flex items-center justify-center cursor-pointer text-xs shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-5 text-sm text-white/70">
+                {faqEntries.map((entry) => (
+                  <div key={entry.id} className="border-b border-white/10 pb-4 last:border-0">
+                    <p className="font-bold text-white text-sm mb-1.5">{entry.question}</p>
+                    {entry.status === "published" ? (
+                      <p className="text-xs leading-5 text-white/60">{entry.answer}</p>
+                    ) : (
+                      <p className="text-xs italic text-amber-300/70">🚧 Coming soon — the team is writing this one.</p>
+                    )}
+                  </div>
+                ))}
               </div>
             </motion.div>
           </motion.div>
