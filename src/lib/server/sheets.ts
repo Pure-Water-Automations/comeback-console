@@ -1,7 +1,7 @@
-// Server-only Google Sheets read client for the NJ console (POC).
+// Server-only Google Sheets read client (shared by the live scoreboard + FAQ).
 // Reuses the local Workspace OAuth credential (full `spreadsheets` scope) at
 // ~/.google_workspace_mcp/credentials/<email>.json — the same client the
-// google-workspace MCP uses — so the dev server can read the live NJ workbooks
+// google-workspace MCP uses — so the dev server can read the live workbooks
 // with zero new dependencies. Never import this from client code.
 //
 // The write helpers (updateValues / batchUpdateValues / appendValues) were

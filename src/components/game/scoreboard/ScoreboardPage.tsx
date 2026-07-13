@@ -24,7 +24,8 @@ import {
   type Community,
   type RankedCommunity,
 } from "@/lib/comebackData";
-import { SNAPSHOT_DATE } from "@/lib/njData";
+/** Date the static community snapshot was pulled from the live workbooks. */
+const SNAPSHOT_DATE = "2026-06-09";
 import { getScoreboardLive } from "@/lib/scoreboardApi";
 import { cn } from "@/lib/utils";
 import { communityIsLeaderArt, communitySprite } from "./mascots";

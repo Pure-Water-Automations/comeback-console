@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { ACHIEVEMENTS, sanitizeAchievementIds } from "@/lib/progression";
+import { ACHIEVEMENT_IDS, sanitizeAchievementIds } from "@/lib/achievements";
 import { defSchema } from "@/lib/awardsAdminApi";
 import { SEED_AWARD_DEFS } from "@/lib/awards-engine/seeds";
 
 describe("sanitizeAchievementIds (trophy endpoint guard)", () => {
   it("keeps only ids from the real achievement registry, deduped", () => {
-    const real = ACHIEVEMENTS[0].id;
-    expect(sanitizeAchievementIds([real, real, "totally-fake", 42, null, "x".repeat(5000)])).toEqual([real]);
+    const real = ACHIEVEMENT_IDS[0];
+    expect(
+      sanitizeAchievementIds([real, real, "totally-fake", 42, null, "x".repeat(5000)]),
+    ).toEqual([real]);
   });
 
   it("returns empty for non-arrays", () => {

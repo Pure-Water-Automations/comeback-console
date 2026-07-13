@@ -1,4 +1,4 @@
-// Global game navigation — Awards · Standings · Rulebook · My Console · NJ.
+// Global game navigation — Awards · Standings · Rulebook · My Console.
 // Fixed top-right chip row per DESIGN_BRIEF (bordered, backdrop-blur, no radius).
 
 import { Link, useRouterState } from "@tanstack/react-router";
@@ -10,7 +10,6 @@ const LINKS = [
   { to: "/scoreboard", label: "Standings" },
   { to: "/", label: "Rulebook" },
   { to: "/dashboard", label: "My Console" },
-  { to: "/nj", label: "NJ Console" },
 ] as const;
 
 export function GameNav() {
