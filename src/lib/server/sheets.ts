@@ -67,3 +67,26 @@ export async function getValues(spreadsheetId: string, range: string): Promise<s
   const json = await sheetsFetch(`${BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`);
   return (json.values as string[][]) || [];
 }
+
+/** All tab (sheet) titles in the workbook. */
+export async function listTabs(spreadsheetId: string): Promise<string[]> {
+  const json = await sheetsFetch(`${BASE}/${spreadsheetId}?fields=sheets.properties.title`);
+  return ((json.sheets as Array<{ properties?: { title?: string } }>) || [])
+    .map((s) => s.properties?.title)
+    .filter((t): t is string => !!t);
+}
+
+/**
+ * Read several ranges in one call. Returns grids aligned to the input order
+ * (the API preserves range order). All referenced tabs must exist, or the whole
+ * request errors — pass only tab names you've confirmed via listTabs.
+ */
+export async function batchGetValues(
+  spreadsheetId: string,
+  ranges: string[],
+): Promise<string[][][]> {
+  if (!ranges.length) return [];
+  const qs = ranges.map((r) => `ranges=${encodeURIComponent(r)}`).join("&");
+  const json = await sheetsFetch(`${BASE}/${spreadsheetId}/values:batchGet?${qs}`);
+  return ((json.valueRanges as Array<{ values?: string[][] }>) || []).map((vr) => vr.values || []);
+}

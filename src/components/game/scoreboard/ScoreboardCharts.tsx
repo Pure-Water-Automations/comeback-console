@@ -53,13 +53,19 @@ function Panel({
 export function ScoreboardCharts({
   standings,
   sourceKey,
+  ytd,
 }: {
   standings: RankedCommunity[];
   /** Changes when live data replaces the snapshot — remounts the charts so
    *  ResponsiveContainer re-measures after layout has settled (its initial
    *  measurement can race the grid and stick at a tiny width). */
   sourceKey: string;
+  /** Region-wide avg Sunday attendance per month, YTD. Empty → weekly fallback. */
+  ytd: { label: string; attendance: number }[];
 }) {
+  // Prefer the YTD monthly trend (needs ≥2 months); otherwise the current
+  // month's weekly line below, which is all the snapshot fallback can offer.
+  const useYtd = ytd.length >= 2;
   // TREND — region-wide Sunday attendance per week of the month. Weeks that
   // only a handful of communities have reported yet are dropped: summing them
   // makes the region line nosedive and reads as collapse, not missing data.
@@ -105,11 +111,26 @@ export function ScoreboardCharts({
 
   return (
     <section key={sourceKey} className="grid gap-4 lg:grid-cols-3">
-      <Panel title="Attendance Trend" sub="Region-wide Sunday worship, this month">
+      <Panel
+        title="Attendance Trend"
+        sub={
+          useYtd
+            ? "Region-wide Sunday worship, monthly YTD"
+            : "Region-wide Sunday worship, this month"
+        }
+      >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={trend} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
+          <LineChart
+            data={useYtd ? ytd : trend}
+            margin={{ top: 8, right: 8, bottom: 0, left: -18 }}
+          >
             <CartesianGrid stroke={GRID} vertical={false} />
-            <XAxis dataKey="week" tick={AXIS} tickLine={false} axisLine={false} />
+            <XAxis
+              dataKey={useYtd ? "label" : "week"}
+              tick={AXIS}
+              tickLine={false}
+              axisLine={false}
+            />
             <YAxis tick={AXIS} tickLine={false} axisLine={false} />
             <Tooltip
               contentStyle={TOOLTIP_STYLE}
@@ -120,7 +141,7 @@ export function ScoreboardCharts({
             <Line
               isAnimationActive={false}
               type="monotone"
-              dataKey="region"
+              dataKey={useYtd ? "attendance" : "region"}
               stroke="var(--chart-2)"
               strokeWidth={2}
               dot={{ r: 3 }}

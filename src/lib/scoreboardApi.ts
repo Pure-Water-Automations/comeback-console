@@ -29,3 +29,24 @@ export const getScoreboardLive = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
+export interface AttendanceTrendPayload {
+  source: "live" | "empty";
+  /** Region-wide avg weekly Sunday attendance, one point per month (Jan → now). */
+  points: { label: string; attendance: number }[];
+}
+
+export const getAttendanceTrend = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AttendanceTrendPayload> => {
+    try {
+      const { loadAttendanceYtd } = await import("@/lib/server/liveAttendance");
+      const points = await loadAttendanceYtd();
+      return {
+        source: points.length ? "live" : "empty",
+        points: points.map((p) => ({ label: p.label, attendance: p.attendance })),
+      };
+    } catch {
+      return { source: "empty", points: [] };
+    }
+  },
+);

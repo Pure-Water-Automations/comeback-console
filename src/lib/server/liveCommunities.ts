@@ -16,7 +16,7 @@ import {
   type CommunitySize,
 } from "@/lib/comebackData";
 
-const SCOREBOARD_SHEET_ID = "1B2n0xjDppwGGJyvZH2zP_il-CsdctNA4xozEMuYJTT4";
+export const SCOREBOARD_SHEET_ID = "1B2n0xjDppwGGJyvZH2zP_il-CsdctNA4xozEMuYJTT4";
 // Known legacy tab names (the sheet is inconsistent — "Feb 2026", not
 // "February 2026"), kept as fallbacks behind the date-derived candidates.
 export const MONTH_TABS = ["June 2026", "May 2026", "April 2026", "March 2026", "Feb 2026", "Jan 2026"];

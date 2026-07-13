@@ -24,7 +24,7 @@ import {
   type Community,
   type RankedCommunity,
 } from "@/lib/comebackData";
-import { getScoreboardLive } from "@/lib/scoreboardApi";
+import { getAttendanceTrend, getScoreboardLive } from "@/lib/scoreboardApi";
 import { cn } from "@/lib/utils";
 import { communityIsLeaderArt, communitySprite } from "./mascots";
 import { AwardsRecap } from "../awards/AwardsRecap";
@@ -802,6 +802,11 @@ export function ScoreboardPage() {
     queryFn: () => getScoreboardLive(),
     staleTime: 5 * 60_000,
   });
+  const trendQuery = useQuery({
+    queryKey: ["attendance-ytd"],
+    queryFn: () => getAttendanceTrend(),
+    staleTime: 30 * 60_000, // monthly data — refetch rarely
+  });
   const standings = useMemo(
     () => scoreboardQuery.data?.standings ?? rankedCommunities(),
     [scoreboardQuery.data],
@@ -844,6 +849,7 @@ export function ScoreboardPage() {
         <ScoreboardCharts
           standings={standings}
           sourceKey={`${dataSource}-${dataMonth ?? "none"}`}
+          ytd={trendQuery.data?.points ?? []}
         />
         <StandingsTable
           standings={standings}
