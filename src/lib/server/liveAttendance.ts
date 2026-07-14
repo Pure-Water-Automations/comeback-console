@@ -1,7 +1,8 @@
-// Server-only: region-wide YTD Sunday-attendance trend. Each calendar month is
-// its own tab on the scoreboard sheet, so we read this year's month tabs (Jan →
-// current) and sum every community's monthly Sunday-Service average into one
-// region point per month. Import ONLY from server fn handlers (never client).
+// Server-only: Sunday-attendance history read across the monthly scoreboard
+// tabs (each calendar month is its own tab). Two views over the same read:
+//  - loadAttendanceYtd(): region-wide total per month (scoreboard trend)
+//  - loadAttendanceByCommunity(): per-community monthly avg (My Console selector)
+// Import ONLY from server fn handlers (never client).
 
 import { SCOREBOARD_SHEET_ID } from "@/lib/server/liveCommunities";
 
@@ -37,18 +38,11 @@ function parseMonthTab(title: string): { month: number; year: number } | null {
   return idx < 0 ? null : { month: idx, year: Number(m[2]) };
 }
 
-export interface AttendancePoint {
-  label: string;
-  attendance: number;
-  reporters: number;
-}
-
 /**
- * Region-wide average weekly Sunday attendance, one point per month, Jan →
- * current month of this year. Empty array on any failure (caller falls back to
- * the current-month weekly view).
+ * This year's month tabs (Jan → current), oldest first, each with its parsed
+ * rows. Two API calls total: list the tabs, then batch-read them.
  */
-export async function loadAttendanceYtd(): Promise<AttendancePoint[]> {
+async function readYtdMonthTabs(): Promise<{ month: number; rows: string[][] }[]> {
   const { listTabs, batchGetValues } = await import("@/lib/server/sheets");
   const today = new Date();
   const year = today.getFullYear();
@@ -68,12 +62,26 @@ export async function loadAttendanceYtd(): Promise<AttendancePoint[]> {
     SCOREBOARD_SHEET_ID,
     months.map(([, title]) => `${title}!A4:BN40`),
   );
+  return months.map(([month], i) => ({ month, rows: grids[i] || [] }));
+}
 
+export interface AttendancePoint {
+  label: string;
+  attendance: number;
+  reporters: number;
+}
+
+/**
+ * Region-wide average weekly Sunday attendance, one point per month, Jan →
+ * current month. Empty array on any failure (caller falls back to weekly).
+ */
+export async function loadAttendanceYtd(): Promise<AttendancePoint[]> {
+  const tabs = await readYtdMonthTabs();
   const points: AttendancePoint[] = [];
-  months.forEach(([month], i) => {
+  for (const { month, rows } of tabs) {
     let attendance = 0;
     let reporters = 0;
-    for (const row of grids[i] || []) {
+    for (const row of rows) {
       if (!VALID_SIZES.has((row[2] ?? "").toString().trim())) continue;
       const avg = num(row[12]); // Sunday Service monthly average
       if (avg > 0) {
@@ -82,10 +90,47 @@ export async function loadAttendanceYtd(): Promise<AttendancePoint[]> {
       }
     }
     if (reporters > 0) points.push({ label: SHORT[month], attendance, reporters });
-  });
+  }
 
   // Drop sparsely-reported months (e.g. the current month mid-update) so the
   // line reflects the region, not just who has logged so far.
   const maxReporters = Math.max(...points.map((p) => p.reporters), 1);
   return points.filter((p) => p.reporters >= Math.max(3, Math.ceil(maxReporters / 2)));
+}
+
+export interface CommunityMonthPoint {
+  /** 0-based month index (Jan = 0) so the client can slice by trimester. */
+  month: number;
+  label: string;
+  attendance: number;
+}
+
+/**
+ * Per-community monthly Sunday-Service average, keyed by community id (matched
+ * to the static roster by name, same as the live standings). Only months a
+ * community actually reported appear. Empty object on failure.
+ */
+export async function loadAttendanceByCommunity(): Promise<Record<string, CommunityMonthPoint[]>> {
+  const { COMMUNITIES } = await import("@/lib/comebackData");
+  const idByName = new Map(COMMUNITIES.map((c) => [c.name.toLowerCase(), c.id]));
+  const slug = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+
+  const tabs = await readYtdMonthTabs();
+  const byCommunity: Record<string, CommunityMonthPoint[]> = {};
+  for (const { month, rows } of tabs) {
+    for (const row of rows) {
+      if (!VALID_SIZES.has((row[2] ?? "").toString().trim())) continue;
+      const name = (row[3] ?? "").toString().trim();
+      if (!name) continue;
+      const avg = num(row[12]);
+      if (avg <= 0) continue;
+      const id = idByName.get(name.toLowerCase()) ?? slug(name);
+      (byCommunity[id] ||= []).push({ month, label: SHORT[month], attendance: avg });
+    }
+  }
+  return byCommunity;
 }

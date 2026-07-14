@@ -50,3 +50,21 @@ export const getAttendanceTrend = createServerFn({ method: "GET" }).handler(
     }
   },
 );
+
+export interface CommunityAttendancePayload {
+  source: "live" | "empty";
+  /** communityId → monthly Sunday-Service avg points (month index 0-11, YTD). */
+  byCommunity: Record<string, { month: number; label: string; attendance: number }[]>;
+}
+
+export const getCommunityAttendance = createServerFn({ method: "GET" }).handler(
+  async (): Promise<CommunityAttendancePayload> => {
+    try {
+      const { loadAttendanceByCommunity } = await import("@/lib/server/liveAttendance");
+      const byCommunity = await loadAttendanceByCommunity();
+      return { source: Object.keys(byCommunity).length ? "live" : "empty", byCommunity };
+    } catch {
+      return { source: "empty", byCommunity: {} };
+    }
+  },
+);

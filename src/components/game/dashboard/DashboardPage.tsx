@@ -1,4 +1,5 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   CheckCircle2,
@@ -42,6 +43,7 @@ import {
   type Community,
 } from "@/lib/comebackData";
 import { cn } from "@/lib/utils";
+import { getCommunityAttendance } from "@/lib/scoreboardApi";
 import {
   Select,
   SelectContent,
@@ -565,7 +567,15 @@ function CategoryGaugeCard({ metric, index }: { metric: CategoryMetric; index: n
   );
 }
 
-function ValueBlock({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+function ValueBlock({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
   return (
     <span className="min-w-0">
       <span className="block text-[10px] uppercase tracking-[0.24em] text-white/35">{label}</span>
@@ -628,97 +638,171 @@ function CategoryGauges({ community }: { community: Community }) {
   );
 }
 
+type AttendanceRange = "month" | "T1" | "T2" | "year";
+
+const ATTENDANCE_RANGES: { key: AttendanceRange; label: string }[] = [
+  { key: "month", label: "This Month" },
+  { key: "T1", label: "T1" },
+  { key: "T2", label: "T2" },
+  { key: "year", label: "Year" },
+];
+
+// Trimester month spans (0-based): T1 Jan–Apr, T2 May–Aug, T3 Sep–Dec.
+const RANGE_MONTHS: Record<Exclude<AttendanceRange, "month">, number[]> = {
+  T1: [0, 1, 2, 3],
+  T2: [4, 5, 6, 7],
+  year: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+};
+
 function AttendanceChart({ community }: { community: Community }) {
-  const data =
+  const [range, setRange] = useState<AttendanceRange>("month");
+  const isMonthly = range !== "month";
+
+  // Per-community monthly history is read from the live sheet only once the user
+  // asks for a trimester/year view — the default "This Month" needs no fetch.
+  const monthlyQuery = useQuery({
+    queryKey: ["community-attendance"],
+    queryFn: () => getCommunityAttendance(),
+    staleTime: 30 * 60_000,
+    enabled: isMonthly,
+  });
+  const monthlySeries = monthlyQuery.data?.byCommunity?.[community.id] ?? [];
+
+  const weeklyData =
     community.weeklyAttendance.length > 0
       ? community.weeklyAttendance.map((attendance, index) => ({
-          week: `W${index + 1}`,
-          label: `Week ${index + 1}`,
+          label: `W${index + 1}`,
           attendance,
         }))
-      : [{ week: "W1", label: "Week 1", attendance: null }];
+      : [{ label: "W1", attendance: null as number | null }];
+
+  const monthlyData = isMonthly
+    ? monthlySeries
+        .filter((p) => RANGE_MONTHS[range].includes(p.month))
+        .map((p) => ({ label: p.label, attendance: p.attendance as number | null }))
+    : [];
+
+  const data = isMonthly ? monthlyData : weeklyData;
+  const loadingMonthly = isMonthly && monthlyQuery.isLoading;
+  const emptyMonthly = isMonthly && !monthlyQuery.isLoading && monthlyData.length === 0;
+
   const target = community.sundayService.target;
   const values = data.map((point) => point.attendance ?? 0);
-  const maxValue = Math.max(target, community.sundayService.baseline, community.sundayService.result ?? 0, ...values);
+  const maxValue = Math.max(
+    target,
+    community.sundayService.baseline,
+    community.sundayService.result ?? 0,
+    ...values,
+    0,
+  );
 
   return (
     <SectionShell
       index="02"
       kicker="Sunday service"
-      title="Weekly attendance signal"
+      title="Attendance signal"
       glow="rgba(79,127,255,0.18)"
     >
+      <div className="mb-4 flex w-fit items-center gap-px border border-white/10">
+        {ATTENDANCE_RANGES.map((o) => (
+          <button
+            key={o.key}
+            type="button"
+            onClick={() => setRange(o.key)}
+            className={cn(
+              "px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.24em] transition-colors",
+              range === o.key
+                ? "bg-white/15 text-white"
+                : "bg-black/40 text-white/50 hover:text-white",
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Reveal className="border border-white/10 bg-black/60 p-4 backdrop-blur-md">
           <div className="h-[360px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 24, right: 28, bottom: 8, left: 0 }}>
-                <CartesianGrid stroke="#ffffff14" strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="week"
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
-                  tickLine={{ stroke: "#ffffff24" }}
-                  axisLine={{ stroke: "#ffffff24" }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  domain={[0, Math.ceil(maxValue * 1.18 + 4)]}
-                  tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
-                  tickLine={{ stroke: "#ffffff24" }}
-                  axisLine={{ stroke: "#ffffff24" }}
-                />
-                <Tooltip
-                  cursor={{ stroke: "#ffffff22" }}
-                  contentStyle={{
-                    background: "#050509",
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    borderRadius: 0,
-                    color: "#fff",
-                  }}
-                  labelStyle={{ color: "rgba(255,255,255,0.72)" }}
-                  itemStyle={{ color: "#bae6fd" }}
-                  formatter={(value) => [value === null ? "No service recorded" : value, "Attendance"]}
-                />
-                <ReferenceLine
-                  y={target}
-                  stroke="#facc15"
-                  strokeDasharray="5 5"
-                  label={{
-                    value: `Target ${formatWhole(target)}`,
-                    position: "insideTopRight",
-                    fill: "#fde68a",
-                    fontSize: 11,
-                  }}
-                />
-                {data
-                  .filter((point) => point.attendance === null)
-                  .map((point) => (
-                    <ReferenceDot
-                      key={point.week}
-                      x={point.week}
-                      y={0}
-                      r={6}
-                      fill="rgba(255,255,255,0.12)"
-                      stroke="rgba(255,255,255,0.22)"
-                      label={{
-                        value: "no service recorded",
-                        position: "top",
-                        fill: "rgba(255,255,255,0.42)",
-                        fontSize: 10,
-                      }}
-                    />
-                  ))}
-                <Line
-                  type="monotone"
-                  dataKey="attendance"
-                  connectNulls={false}
-                  stroke="var(--chart-2)"
-                  strokeWidth={3}
-                  dot={{ r: 5, strokeWidth: 2, fill: "#0a0a0b", stroke: "var(--chart-2)" }}
-                  activeDot={{ r: 7, stroke: "#fff", strokeWidth: 1, fill: "var(--chart-2)" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {loadingMonthly || emptyMonthly ? (
+              <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/45">
+                {loadingMonthly
+                  ? "Loading attendance history…"
+                  : "No attendance history for this range yet."}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 24, right: 28, bottom: 8, left: 0 }}>
+                  <CartesianGrid stroke="#ffffff14" strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
+                    tickLine={{ stroke: "#ffffff24" }}
+                    axisLine={{ stroke: "#ffffff24" }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    domain={[0, Math.ceil(maxValue * 1.18 + 4)]}
+                    tick={{ fill: "rgba(255,255,255,0.5)", fontSize: 12 }}
+                    tickLine={{ stroke: "#ffffff24" }}
+                    axisLine={{ stroke: "#ffffff24" }}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: "#ffffff22" }}
+                    contentStyle={{
+                      background: "#050509",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      borderRadius: 0,
+                      color: "#fff",
+                    }}
+                    labelStyle={{ color: "rgba(255,255,255,0.72)" }}
+                    itemStyle={{ color: "#bae6fd" }}
+                    formatter={(value) => [
+                      value === null ? "No service recorded" : value,
+                      "Attendance",
+                    ]}
+                  />
+                  <ReferenceLine
+                    y={target}
+                    stroke="#facc15"
+                    strokeDasharray="5 5"
+                    label={{
+                      value: `Target ${formatWhole(target)}`,
+                      position: "insideTopRight",
+                      fill: "#fde68a",
+                      fontSize: 11,
+                    }}
+                  />
+                  {!isMonthly &&
+                    weeklyData
+                      .filter((point) => point.attendance === null)
+                      .map((point) => (
+                        <ReferenceDot
+                          key={point.label}
+                          x={point.label}
+                          y={0}
+                          r={6}
+                          fill="rgba(255,255,255,0.12)"
+                          stroke="rgba(255,255,255,0.22)"
+                          label={{
+                            value: "no service recorded",
+                            position: "top",
+                            fill: "rgba(255,255,255,0.42)",
+                            fontSize: 10,
+                          }}
+                        />
+                      ))}
+                  <Line
+                    type="monotone"
+                    dataKey="attendance"
+                    connectNulls={false}
+                    stroke="var(--chart-2)"
+                    strokeWidth={3}
+                    dot={{ r: 5, strokeWidth: 2, fill: "#0a0a0b", stroke: "var(--chart-2)" }}
+                    activeDot={{ r: 7, stroke: "#fff", strokeWidth: 1, fill: "var(--chart-2)" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </Reveal>
         <Reveal className="border border-white/10 bg-black/60 p-5 backdrop-blur-md" delay={0.12}>
@@ -735,11 +819,12 @@ function AttendanceChart({ community }: { community: Community }) {
             <SummaryRow label="Baseline" value={formatWhole(community.sundayService.baseline)} />
             <SummaryRow label="Target" value={formatWhole(target)} />
             <SummaryRow
-              label="Recorded weeks"
-              value={`${community.weeklyAttendance.filter((week) => week !== null).length}/${Math.max(
-                1,
-                data.length,
-              )}`}
+              label={isMonthly ? "Months shown" : "Recorded weeks"}
+              value={
+                isMonthly
+                  ? `${monthlyData.length}`
+                  : `${community.weeklyAttendance.filter((week) => week !== null).length}/${Math.max(1, weeklyData.length)}`
+              }
             />
           </div>
         </Reveal>
@@ -787,7 +872,11 @@ function QuestLog({ community }: { community: Community }) {
                     completed ? "text-amber-100" : "text-cyan-100",
                   )}
                 >
-                  {completed ? <CheckCircle2 className="size-6" /> : <CircleDashed className="size-6" />}
+                  {completed ? (
+                    <CheckCircle2 className="size-6" />
+                  ) : (
+                    <CircleDashed className="size-6" />
+                  )}
                 </span>
                 <div className="min-w-0">
                   <p className="text-[11px] uppercase tracking-[0.32em] text-white/35">
@@ -830,12 +919,7 @@ function Achievements({ community }: { community: Community }) {
   const badges = communityBadges(community);
 
   return (
-    <SectionShell
-      index="04"
-      kicker="Achievements"
-      title="Badge grid"
-      glow="rgba(168,85,247,0.16)"
-    >
+    <SectionShell index="04" kicker="Achievements" title="Badge grid" glow="rgba(168,85,247,0.16)">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {badges.map((badge, index) => {
           const Icon = badge.earned ? (BADGE_ICONS[badge.id] ?? Sparkles) : LockKeyhole;
