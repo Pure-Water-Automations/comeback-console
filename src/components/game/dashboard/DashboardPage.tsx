@@ -991,7 +991,7 @@ function CoachCorner({ community }: { community: Community }) {
         <div className="grid gap-4">
           {tips.map((tip, index) => (
             <motion.div
-              key={tip}
+              key={tip.lane}
               className="relative border border-white/10 bg-white/[0.04] p-5"
               initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -999,7 +999,11 @@ function CoachCorner({ community }: { community: Community }) {
               transition={{ duration: 0.54, delay: index * 0.08, ease: EASE }}
             >
               <MessageSquareQuote className="mb-4 size-6 text-cyan-100" />
-              <p className="text-lg font-bold uppercase leading-7 text-white">{tip}</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-cyan-100/80">
+                {tip.lane}
+              </p>
+              <p className="mt-1 font-mono text-lg font-bold text-white">{tip.standing}</p>
+              <p className="mt-3 text-sm leading-6 text-white/70">{tip.advice}</p>
             </motion.div>
           ))}
         </div>

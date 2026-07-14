@@ -332,9 +332,7 @@ export function categoryPoints(s: CategoryScore): number {
 }
 
 export function totalPoints(c: Community): number {
-  return (
-    categoryPoints(c.finance) + categoryPoints(c.activeMembers) + categoryPoints(c.blessing)
-  );
+  return categoryPoints(c.finance) + categoryPoints(c.activeMembers) + categoryPoints(c.blessing);
 }
 
 export interface RankedCommunity extends Community {
@@ -347,13 +345,14 @@ export interface RankedCommunity extends Community {
 
 /** Communities sorted by total points, with per-category point breakdown */
 export function rankedCommunities(list: Community[] = COMMUNITIES): RankedCommunity[] {
-  return list.map((c) => ({
-    ...c,
-    points: totalPoints(c),
-    financePoints: categoryPoints(c.finance),
-    memberPoints: categoryPoints(c.activeMembers),
-    blessingPoints: categoryPoints(c.blessing),
-  }))
+  return list
+    .map((c) => ({
+      ...c,
+      points: totalPoints(c),
+      financePoints: categoryPoints(c.finance),
+      memberPoints: categoryPoints(c.activeMembers),
+      blessingPoints: categoryPoints(c.blessing),
+    }))
     .sort((a, b) => b.points - a.points)
     .map((c, i) => ({ ...c, rank: i + 1 }));
 }
@@ -410,8 +409,7 @@ export function communityBadges(c: Community): Badge[] {
       id: "faithful-scribe",
       label: "Faithful Scribe",
       description: "Attendance recorded every week this month.",
-      earned:
-        c.weeklyAttendance.length > 0 && c.weeklyAttendance.every((w) => w !== null && w > 0),
+      earned: c.weeklyAttendance.length > 0 && c.weeklyAttendance.every((w) => w !== null && w > 0),
     },
   ];
 }
@@ -425,21 +423,62 @@ export function communityLevel(points: number): { level: number; progress: numbe
 }
 
 /** Coaching tips keyed to the weakest category, phrased from the pastor guide */
-export function coachingTips(c: Community): string[] {
-  const cats = [
-    { key: "finance", pct: pctOfTarget(c.finance) },
-    { key: "members", pct: pctOfTarget(c.activeMembers) },
-    { key: "blessing", pct: pctOfTarget(c.blessing) },
-  ].sort((a, b) => a.pct - b.pct);
-  const tips: Record<string, string> = {
-    finance:
-      "Income points come from growth vs. baseline — make sure monthly giving is entered in the finance source and watch your target line.",
-    members:
-      "Active members are people who attend 3+ times in 3 months. Record every Sunday and event, then follow up with drifting members.",
-    blessing:
-      "Blessing points reward process steps, not just ceremonies. Record every step a candidate takes — movement is the score.",
-  };
-  return cats.slice(0, 2).map((cat) => tips[cat.key]);
+export interface CoachingTip {
+  /** Lane the tip is about, e.g. "Active members". */
+  lane: string;
+  /** The community's real standing in that lane — the grounded, per-community bit. */
+  standing: string;
+  /** How to move that number. */
+  advice: string;
+}
+
+/**
+ * The two lanes this community is furthest behind target on, each with its real
+ * numbers (result / target / % / gap) and the concrete action to move it. Data-
+ * driven end to end: which lanes AND what they say both come from the community.
+ */
+export function coachingTips(c: Community): CoachingTip[] {
+  const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
+  const int = (n: number) => Math.round(n).toLocaleString("en-US");
+  const lanes = [
+    {
+      lane: "Income",
+      score: c.finance,
+      fmt: usd,
+      advice:
+        "Enter monthly giving on time and keep it growing over baseline — income points are pure growth vs. baseline.",
+    },
+    {
+      lane: "Active members",
+      score: c.activeMembers,
+      fmt: int,
+      advice:
+        "Active = 3+ visits in 3 months. Record every Sunday and event, then follow up with the members who are drifting.",
+    },
+    {
+      lane: "Blessing",
+      score: c.blessing,
+      fmt: int,
+      advice:
+        "Points reward every process step, not just ceremonies — log each candidate's movement as it happens.",
+    },
+  ];
+
+  return lanes
+    .map((l) => ({ ...l, pct: pctOfTarget(l.score) }))
+    .sort((a, b) => a.pct - b.pct)
+    .slice(0, 2)
+    .map(({ lane, score, fmt, advice, pct }): CoachingTip => {
+      let standing: string;
+      if (score.result === null) {
+        standing = "Not reported yet — log this month's number";
+      } else {
+        const gap = score.target - score.result;
+        const base = `${fmt(score.result)} of ${fmt(score.target)} · ${Math.round(pct)}% of target`;
+        standing = gap > 0 ? `${base} · ${fmt(gap)} to go` : `${base} · above target`;
+      }
+      return { lane, standing, advice };
+    });
 }
 
 export const TEAM_LABELS: Record<Community["team"], string> = {
